@@ -1,0 +1,32 @@
+name: Build VTerm Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        run: |
+          pyinstaller --onefile --name VTerm --paths src src/main.py
+
+      - name: Upload executable to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/VTerm.exe
