@@ -6,7 +6,6 @@ plus a single-line command input with history (up/down arrows).
 """
 
 import logging
-from datetime import datetime
 from typing import List
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTextEdit, QLineEdit,

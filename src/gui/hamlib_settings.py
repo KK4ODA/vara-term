@@ -20,7 +20,6 @@ Integration:
 
 import logging
 import os
-from pathlib import Path
 from typing import Optional
 
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
@@ -272,6 +271,14 @@ class HamlibDownloadDialog(QDialog):
         self._build_ui()
         # Auto-check on open
         self._check_update()
+
+    def closeEvent(self, event):
+        """Ensure background workers are stopped before dialog closes."""
+        for worker in (self._checker, self._worker):
+            if worker and worker.isRunning():
+                worker.quit()
+                worker.wait(3000)
+        super().closeEvent(event)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)

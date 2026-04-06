@@ -63,7 +63,7 @@ COMMON_RIG_MODELS = {
     2044: "Kenwood TS-590SG",
     2028: "Elecraft K3",
     2045: "Elecraft KX3",
-    2048: "Elecraft K4",
+    2047: "Elecraft K4",
     # FlexRadio
     2036: "Flex 6000 series",
 }

@@ -307,8 +307,6 @@ class VARAModem(QObject):
             # the remote based on our own callsign.
             call1 = parts[1] if len(parts) >= 2 else "UNKNOWN"
             call2 = parts[2] if len(parts) >= 3 else ""
-            # Store the raw connected calls for the main window to resolve
-            self._connected_calls = (call1, call2)
             self._remote_call = call1  # default; main window may override
             self._set_state(ConnectionState.CONNECTED)
             self.rf_connected.emit(f"{call1} {call2}".strip())

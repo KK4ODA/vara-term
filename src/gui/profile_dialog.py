@@ -3,7 +3,7 @@ gui/profile_dialog.py — Connection profile manager for VTerm.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,

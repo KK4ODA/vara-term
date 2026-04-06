@@ -185,8 +185,8 @@ class PTTController(QObject):
                         self._hamlib.set_ptt(False)
                     elif self._omnirig:
                         self._omnirig.set_ptt(False)
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.warning(f"Failed to release PTT during stop: {e}")
                 self._ptt_on = False
 
         if self._omnirig:

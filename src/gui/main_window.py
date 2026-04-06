@@ -8,7 +8,6 @@ VARA modem interface, and authentication interceptor.
 import logging
 import os
 import subprocess
-import sys
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -17,8 +16,8 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QComboBox, QStatusBar,
     QMenuBar, QMenu, QFrame, QMessageBox, QApplication,
 )
-from PyQt6.QtGui import QAction, QFont, QIcon, QColor
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal
+from PyQt6.QtGui import QAction, QFont, QColor
+from PyQt6.QtCore import Qt, QTimer, pyqtSlot
 
 from config import Config, APP_NAME, APP_VERSION
 from passwords import PasswordStore
@@ -163,13 +162,10 @@ class MainWindow(QMainWindow):
         self.target_input.setDuplicatesEnabled(False)
         # Load saved history
         saved_history = self.config.get("target_history", [])
-        log.info(f"Loading target history into combobox: {saved_history} "
-                 f"(from {self.config._path})")
+        log.debug(f"Loading target history: {saved_history}")
         for call in saved_history:
             if call and isinstance(call, str):
                 self.target_input.addItem(call.upper().strip())
-        count = self.target_input.count()
-        log.info(f"ComboBox populated with {count} items")
         if count > 0:
             self.target_input.setCurrentIndex(0)
         else:
@@ -512,21 +508,21 @@ class MainWindow(QMainWindow):
         elif self.modem.state != ConnectionState.DISCONNECTED:
             self.modem.disconnect_from_modem()
 
-    def _on_command(self, text: str):
-        """User typed a command in the input bar."""
+    def _send_text(self, text: str):
+        """Send a line of text over RF, echo locally, and log."""
         if self.modem.state != ConnectionState.CONNECTED:
             self.terminal.display.append_warning(
                 "Not connected — command not sent.")
             return
-
-        # Echo the command locally
         self.terminal.display.append_text(f"> {text}\n", "dim")
-
-        # Send over RF via data socket
         self.modem.send_data(text + "\r\n")
-
-        # Log
         self._log_line(f"> {text}")
+
+    def _on_command(self, text: str):
+        """User typed a command in the input bar."""
+        if not text.strip():
+            return
+        self._send_text(text)
 
     # ── Data handling ──────────────────────────────────────────────
 
@@ -654,8 +650,10 @@ class MainWindow(QMainWindow):
         expected_idx = 1 if self.config.is_hf else 0
         if self.mode_combo.currentIndex() != expected_idx:
             self.mode_combo.blockSignals(True)
-            self.mode_combo.setCurrentIndex(expected_idx)
-            self.mode_combo.blockSignals(False)
+            try:
+                self.mode_combo.setCurrentIndex(expected_idx)
+            finally:
+                self.mode_combo.blockSignals(False)
 
         # Update bandwidth label
         if self.config.is_hf:
@@ -730,12 +728,7 @@ class MainWindow(QMainWindow):
     # ── Macros ─────────────────────────────────────────────────────
 
     def _send_macro(self, command: str):
-        if self.modem.state == ConnectionState.CONNECTED:
-            self.terminal.display.append_text(f"> {command}\n", "dim")
-            self.modem.send_data(command + "\r\n")
-            self._log_line(f"> {command}")
-        else:
-            self.terminal.display.append_warning("Not connected — macro not sent.")
+        self._send_text(command)
 
     def _refresh_macros(self):
         """Rebuild macro buttons from config."""
@@ -820,10 +813,14 @@ class MainWindow(QMainWindow):
                     f"\n{'─' * 60}\n"
                     f"Session ended: {datetime.now().isoformat()}\n"
                 )
-                self._session_log_file.close()
             except Exception:
                 pass
-            self._session_log_file = None
+            finally:
+                try:
+                    self._session_log_file.close()
+                except Exception:
+                    pass
+                self._session_log_file = None
 
     # ── Target history ────────────────────────────────────────────
 

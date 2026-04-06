@@ -26,6 +26,7 @@ Usage:
 
 import logging
 import queue
+import socket
 import threading
 import time
 import xmlrpc.client
@@ -185,7 +186,9 @@ class FLrigClient:
         """I/O thread main loop — owns the XML-RPC connection to FLrig."""
         url = f"http://{self._host}:{self._port}"
 
-        # Connect to FLrig
+        # Connect to FLrig (with socket timeout to prevent indefinite hangs)
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(10.0)
         retries = 3
         for attempt in range(retries):
             try:
@@ -208,7 +211,10 @@ class FLrigClient:
                         f"Is FLrig running?  Error: {e}"
                     )
                     self._ready.set()
+                    socket.setdefaulttimeout(old_timeout)
                     return
+
+        socket.setdefaulttimeout(old_timeout)
 
         # Try to read initial frequency for info
         try:
@@ -273,8 +279,9 @@ class FLrigClient:
                     if int(actual) != int(expected):
                         log.warning(
                             f"FLrig PTT verify: expected {expected}, got {actual}")
-                except Exception:
-                    pass
+                        cmd.result = False
+                except Exception as e:
+                    log.debug(f"FLrig PTT verify read-back failed: {e}")
             except Exception as e:
                 log.error(f"FLrig set_ptt({cmd.args}) error: {e}")
                 cmd.result = False
