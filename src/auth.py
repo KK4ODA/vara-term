@@ -21,10 +21,31 @@ AUTH_CHALLENGE_RE = re.compile(
 AUTH_OK_RE = re.compile(r"^;AUTH\s+OK", re.IGNORECASE)
 AUTH_FAIL_RE = re.compile(r"^;AUTH\s+FAIL", re.IGNORECASE)
 
+# Regex for Winlink registration challenge
+WLREG_NONCE_RE = re.compile(
+    r"^;WLREG\s+NONCE\s+([0-9a-fA-F]{32})\s*$"
+)
+
 
 class AuthState(Enum):
     IDLE = auto()
     AWAITING_RESULT = auto()
+
+
+def encrypt_wlreg_password(bbs_password: str, nonce_hex: str,
+                           winlink_password: str) -> str:
+    """Encrypt a Winlink password for the WLREG protocol.
+
+    Uses the shared BBS password + nonce to derive a key, then XOR.
+    Returns the encrypted password as a hex string.
+    """
+    key = hashlib.sha256(
+        (bbs_password + nonce_hex).encode("utf-8")
+    ).digest()
+    pw_bytes = winlink_password.encode("utf-8")
+    full_key = key * ((len(pw_bytes) // len(key)) + 1)
+    encrypted = bytes(pb ^ kb for pb, kb in zip(pw_bytes, full_key))
+    return encrypted.hex()
 
 
 def compute_hmac_response(password: str, nonce_hex: str) -> str:
@@ -129,6 +150,18 @@ class AuthInterceptor:
                 is_error=True,
             )
 
+        # ── Check for WLREG challenge ─────────────────────────────
+        wlreg_match = WLREG_NONCE_RE.match(stripped)
+        if wlreg_match:
+            wlreg_nonce = wlreg_match.group(1)
+            log.info(f"WLREG challenge received, nonce={wlreg_nonce[:8]}...")
+            return AuthAction(
+                suppress=True,
+                display_text="[WLREG] Winlink registration challenge received",
+                is_auth_event=True,
+                wlreg_nonce=wlreg_nonce,
+            )
+
         # ── Not an auth line ───────────────────────────────────────
         return AuthAction()
 
@@ -143,7 +176,8 @@ class AuthAction:
                  is_auth_event: bool = False,
                  is_success: bool = False,
                  is_error: bool = False,
-                 is_warning: bool = False):
+                 is_warning: bool = False,
+                 wlreg_nonce: Optional[str] = None):
         self.suppress = suppress
         self.send_response = send_response
         self.display_text = display_text
@@ -151,3 +185,4 @@ class AuthAction:
         self.is_success = is_success
         self.is_error = is_error
         self.is_warning = is_warning
+        self.wlreg_nonce = wlreg_nonce  # set when BBS sends ;WLREG NONCE

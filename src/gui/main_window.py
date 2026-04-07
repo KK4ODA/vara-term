@@ -14,7 +14,7 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QComboBox, QStatusBar,
-    QMenuBar, QMenu, QFrame, QMessageBox, QApplication,
+    QMenuBar, QMenu, QFrame, QMessageBox, QInputDialog,
 )
 from PyQt6.QtGui import QAction, QFont, QColor
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot
@@ -574,6 +574,10 @@ class MainWindow(QMainWindow):
             self.modem.send_data(action.send_response)
             log.info("Sent HMAC auth response")
 
+        # Handle WLREG challenge — prompt locally for Winlink password
+        if action.wlreg_nonce:
+            self._handle_wlreg_challenge(action.wlreg_nonce, password)
+
         # Display handling
         if action.suppress and not action.display_text:
             # Completely suppressed
@@ -595,6 +599,39 @@ class MainWindow(QMainWindow):
 
         # Log
         self._log_line(line)
+
+    def _handle_wlreg_challenge(self, nonce: str, bbs_password: Optional[str]):
+        """Handle a ;WLREG NONCE challenge from the BBS.
+
+        Prompts the user locally for their Winlink password, encrypts it
+        using the shared BBS password + nonce, and sends the encrypted
+        response. The Winlink password never appears in plaintext over RF.
+        """
+        from auth import encrypt_wlreg_password
+
+        if not bbs_password:
+            self.terminal.display.append_error(
+                "[WLREG] No BBS password saved — cannot encrypt Winlink password")
+            self.modem.send_data("CANCEL\r\n")
+            return
+
+        # Prompt locally (not over RF)
+        wl_pw, ok = QInputDialog.getText(
+            self, "Winlink Registration",
+            "Enter your Winlink password:\n"
+            "(encrypted before sending — never sent in clear over RF)",
+            QLineEdit.EchoMode.Password,
+        )
+        if not ok or not wl_pw.strip():
+            self.terminal.display.append_warning("[WLREG] Registration cancelled")
+            self.modem.send_data("CANCEL\r\n")
+            return
+
+        # Encrypt using shared BBS password + nonce
+        encrypted_hex = encrypt_wlreg_password(bbs_password, nonce, wl_pw.strip())
+        self.modem.send_data(f";WLREG {encrypted_hex}\r\n")
+        self.terminal.display.append_system(
+            "[WLREG] Encrypted Winlink password sent")
 
     # ── State management ───────────────────────────────────────────
 
@@ -1043,19 +1080,40 @@ class MainWindow(QMainWindow):
 
     def _show_commands_ref(self):
         QMessageBox.information(self, "BBS Commands Reference",
-            "<h3>Common BBS Commands</h3>"
+            "<h3>Messages</h3>"
             "<table>"
-            "<tr><td><b>H</b></td><td>Help / command list</td></tr>"
-            "<tr><td><b>LM</b></td><td>List my messages</td></tr>"
-            "<tr><td><b>RM</b></td><td>Read new messages</td></tr>"
+            "<tr><td><b>L</b></td><td>List messages</td></tr>"
             "<tr><td><b>R #</b></td><td>Read message by number</td></tr>"
-            "<tr><td><b>SP call</b></td><td>Send private message</td></tr>"
-            "<tr><td><b>SB topic</b></td><td>Send bulletin</td></tr>"
+            "<tr><td><b>S call</b></td><td>Send message to callsign</td></tr>"
+            "<tr><td><b>S user@addr</b></td><td>Send via Winlink</td></tr>"
+            "<tr><td><b>K #</b></td><td>Delete message</td></tr>"
+            "<tr><td><b>U</b></td><td>Your messages</td></tr>"
+            "<tr><td><b>N</b></td><td>New messages</td></tr>"
+            "</table>"
+            "<h3>Bulletins</h3>"
+            "<table>"
             "<tr><td><b>LB</b></td><td>List bulletins</td></tr>"
-            "<tr><td><b>LF</b></td><td>List files</td></tr>"
-            "<tr><td><b>DF file</b></td><td>Download file</td></tr>"
+            "<tr><td><b>RB #</b></td><td>Read bulletin</td></tr>"
+            "<tr><td><b>SB group</b></td><td>Post bulletin</td></tr>"
+            "</table>"
+            "<h3>Files</h3>"
+            "<table>"
+            "<tr><td><b>FL</b></td><td>List files</td></tr>"
+            "<tr><td><b>FG area file</b></td><td>Download file</td></tr>"
+            "<tr><td><b>FP area file</b></td><td>Upload file</td></tr>"
+            "</table>"
+            "<h3>Winlink</h3>"
+            "<table>"
+            "<tr><td><b>WLREG</b></td><td>Register for Winlink email</td></tr>"
+            "<tr><td><b>WLOFF</b></td><td>Unregister from Winlink</td></tr>"
+            "</table>"
+            "<h3>Other</h3>"
+            "<table>"
+            "<tr><td><b>H</b></td><td>Help</td></tr>"
             "<tr><td><b>I</b></td><td>Station info</td></tr>"
-            "<tr><td><b>BYE</b></td><td>Disconnect</td></tr>"
+            "<tr><td><b>MH</b></td><td>Heard stations</td></tr>"
+            "<tr><td><b>CH</b></td><td>Chat with sysop</td></tr>"
+            "<tr><td><b>B</b></td><td>Disconnect</td></tr>"
             "</table>"
         )
 
