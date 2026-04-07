@@ -1,5 +1,5 @@
 """
-vara/modem.py — VARA modem TCP interface for VTerm (client side).
+vara/modem.py — VARA modem TCP interface for VARA Term (client side).
 
 Manages the two TCP connections (command + data) to a VARA FM or HF modem.
 Uses Qt signals to communicate events back to the GUI thread.

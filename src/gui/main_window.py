@@ -1,5 +1,5 @@
 """
-gui/main_window.py — Main application window for VTerm.
+gui/main_window.py — Main application window for VARA Term.
 
 Ties together the terminal, connection bar, macro buttons, status bar,
 VARA modem interface, and authentication interceptor.
@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
-    """VTerm main application window."""
+    """VARA Term main application window."""
 
     def __init__(self, config: Config, password_store: PasswordStore):
         super().__init__()
@@ -127,7 +127,7 @@ class MainWindow(QMainWindow):
 
         # Help
         help_menu = menubar.addMenu("&Help")
-        about_action = QAction("&About VTerm", self)
+        about_action = QAction("&About VARA Term", self)
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
 
@@ -166,7 +166,7 @@ class MainWindow(QMainWindow):
         for call in saved_history:
             if call and isinstance(call, str):
                 self.target_input.addItem(call.upper().strip())
-        if count > 0:
+        if self.target_input.count() > 0:
             self.target_input.setCurrentIndex(0)
         else:
             self.target_input.setCurrentText("")
@@ -212,6 +212,8 @@ class MainWindow(QMainWindow):
 
         self.status_dot = QLabel("●")
         self.status_dot.setObjectName("statusDot")
+        self.status_dot.setStyleSheet(
+            f"color: {STATE_HEX.get('red', C['error'])}; font-size: 14pt;")
         row2.addWidget(self.status_dot)
 
         row2.addStretch()
@@ -702,7 +704,7 @@ class MainWindow(QMainWindow):
         if "Cannot connect to VARA modem" in msg:
             mode = self.config.get("vara_mode", "VARA FM")
             self.terminal.display.append_warning(
-                f"  Tip: VTerm is set to {mode}. Make sure the {mode}\n"
+                f"  Tip: VARA Term is set to {mode}. Make sure the {mode}\n"
                 f"  modem is running. Switch modes in the toolbar if needed.")
         self.modem_status_label.setText("Modem: Error")
         self.modem_status_label.setStyleSheet(f"color: {C['error']};")
@@ -786,7 +788,7 @@ class MainWindow(QMainWindow):
             filename = f"{timestamp}_{remote}.log"
             self._session_log_file = open(logs_dir / filename, "w", encoding="utf-8")
             self._session_log_file.write(
-                f"VTerm Session Log\n"
+                f"VARA Term Session Log\n"
                 f"Date: {datetime.now().isoformat()}\n"
                 f"Station: {self.config.full_callsign}\n"
                 f"Remote: {remote}\n"
@@ -897,10 +899,17 @@ class MainWindow(QMainWindow):
         if new_mode == old_mode:
             return
 
+        # 1. Clean up the old modem connection (TCP sockets + state)
+        self._connect_in_progress = False
+        self._cleanup_timer.stop()
+        self.modem.disconnect_from_modem()
+        self.ptt.stop()
+
+        # 2. Persist the new mode
         self.config.set("vara_mode", new_mode)
         self.config.save()
 
-        # Terminate the old modem process(es) and launch the new one
+        # 3. Terminate old modem process and launch the new one
         self._terminate_modem_processes()
         self.terminal.display.append_system(f"Switched to {new_mode}")
         QTimer.singleShot(300, self._launch_modem_processes)
@@ -1055,7 +1064,7 @@ class MainWindow(QMainWindow):
     def _show_welcome(self):
         self.terminal.display.append_text(
             "\n"
-            "  VTerm  --  VARA BBS Terminal Client\n"
+            "  VARA Term  --  VARA BBS Terminal Client\n"
             f"  Version {APP_VERSION}\n"
             "  -----------------------------------\n"
             "\n",
@@ -1080,6 +1089,30 @@ class MainWindow(QMainWindow):
         if history:
             self.terminal.display.append_text(
                 f"  Recent stations: {', '.join(history)}\n\n", "dim")
+
+        # Check OmniRig availability (needed for HF PTT)
+        self._check_omnirig()
+
+    def _check_omnirig(self):
+        """Check OmniRig availability at startup and display status."""
+        try:
+            import win32com.client
+            import pythoncom
+            pythoncom.CoInitialize()
+            try:
+                omnirig = win32com.client.Dispatch("OmniRig.OmniRigX")
+                ver = getattr(omnirig, "SoftwareVersion", "")
+                self.terminal.display.append_success(
+                    f"  OmniRig detected{f' (v{ver})' if ver else ''} — HF PTT ready\n")
+            except Exception:
+                self.terminal.display.append_warning(
+                    "  OmniRig not running — start OmniRig for HF PTT control\n")
+            finally:
+                pythoncom.CoUninitialize()
+        except ImportError:
+            self.terminal.display.append_warning(
+                "  pywin32 not installed — OmniRig PTT unavailable\n"
+                "  Install with: pip install pywin32\n")
 
     # ── Cleanup ────────────────────────────────────────────────────
 

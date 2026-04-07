@@ -1,4 +1,4 @@
-name: Build VTerm Release
+name: Build VARA Term Release
 
 on:
   release:
@@ -24,9 +24,9 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --onefile --name VTerm --paths src src/main.py
+          pyinstaller --onefile --name VARA Term --paths src src/main.py
 
       - name: Upload executable to release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/VTerm.exe
+          files: dist/VARA Term.exe

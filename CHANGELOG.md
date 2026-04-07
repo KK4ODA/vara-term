@@ -1,6 +1,6 @@
-# VTerm Changelog
+# VARA Term Changelog
 
-All notable changes to VTerm are documented here.
+All notable changes to VARA Term are documented here.
 Format: [version] — YYYY-MM-DD, then a bulleted list of changes.
 
 ---

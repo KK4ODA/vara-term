@@ -1,5 +1,5 @@
 """
-gui/profile_dialog.py — Connection profile manager for VTerm.
+gui/profile_dialog.py — Connection profile manager for VARA Term.
 """
 
 import logging

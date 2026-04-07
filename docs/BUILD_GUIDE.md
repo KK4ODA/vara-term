@@ -1,4 +1,4 @@
-# Building the VTerm Windows Installer
+# Building the VARA Term Windows Installer
 
 ## The 3-Step Version
 
@@ -7,7 +7,7 @@
 
 2. **Install Inno Setup 6** from https://jrsoftware.org/isdl.php
    - Use the default install location — the build script auto-detects it
-   - This creates the `VTerm_Setup_1.0.0.exe` installer
+   - This creates the `VARA Term_Setup_1.0.0.exe` installer
    - Skip this if you only want a portable .zip
 
 3. **Double-click `build.bat`**
@@ -20,9 +20,9 @@ When it finishes you'll find these in the `dist\` folder:
 
 | File | What it is |
 |------|------------|
-| `dist\VTerm_Setup_1.0.0.exe` | Installer (Start Menu, uninstaller, the works) |
-| `dist\VTerm_Portable_1.0.0.zip` | Portable zip (extract anywhere, run VTerm.exe) |
-| `dist\VTerm\VTerm.exe` | Raw build output (used by the above two) |
+| `dist\VARA Term_Setup_1.0.0.exe` | Installer (Start Menu, uninstaller, the works) |
+| `dist\VARA Term_Portable_1.0.0.zip` | Portable zip (extract anywhere, run VARA Term.exe) |
+| `dist\VARA Term\VARA Term.exe` | Raw build output (used by the above two) |
 
 ---
 
@@ -46,7 +46,7 @@ you need to install manually, everything else is automated.
 → The script checks standard install paths. If you installed elsewhere, add its folder to your system PATH so `iscc.exe` is reachable.
 
 **Missing module at runtime**
-→ Add the module name to `hiddenimports` in `vterm.spec` and rebuild.
+→ Add the module name to `hiddenimports` in `vara_term.spec` and rebuild.
 
 **App icon**
-→ Drop a `resources\vterm.ico` file (256×256 multi-size .ico), uncomment the `icon=` line in `vterm.spec` and `SetupIconFile` in `installer.iss`, rebuild.
+→ Drop a `resources\vara_term.ico` file (256×256 multi-size .ico), uncomment the `icon=` line in `vara_term.spec` and `SetupIconFile` in `installer.iss`, rebuild.

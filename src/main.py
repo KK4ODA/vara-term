@@ -1,5 +1,5 @@
 """
-main.py — VTerm application entry point.
+main.py — VARA Term application entry point.
 
 VARA BBS Terminal Client — a PyQt6 desktop application for connecting
 to amateur radio BBS systems over VARA FM and VARA HF modems.
@@ -14,7 +14,7 @@ from logging.handlers import RotatingFileHandler
 
 def setup_logging():
     """Configure application logging with rotating file handler."""
-    logs_dir = Path.home() / "VTerm" / "logs"
+    logs_dir = Path.home() / "VARA Term" / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
 
     log_file = logs_dir / "vterm.log"
@@ -50,7 +50,7 @@ def setup_logging():
 def main():
     log = setup_logging()
     log.info("=" * 60)
-    log.info("VTerm starting")
+    log.info("VARA Term starting")
     log.info("=" * 60)
 
     try:
@@ -67,8 +67,8 @@ def main():
         from gui.main_window import MainWindow
 
         app = QApplication(sys.argv)
-        app.setApplicationName("VTerm")
-        app.setApplicationDisplayName("VTerm — VARA BBS Terminal Client")
+        app.setApplicationName("VARA Term")
+        app.setApplicationDisplayName("VARA Term — VARA BBS Terminal Client")
 
         # Load configuration
         config = Config()
@@ -80,13 +80,13 @@ def main():
         window = MainWindow(config, password_store)
         window.show()
 
-        log.info("VTerm GUI launched")
+        log.info("VARA Term GUI launched")
         sys.exit(app.exec())
 
     except Exception as e:
         log.exception(f"Fatal error: {e}")
         print(f"\n[FATAL] {e}")
-        print(f"Check logs at: {Path.home() / 'VTerm' / 'logs' / 'vterm.log'}\n")
+        print(f"Check logs at: {Path.home() / 'VARA Term' / 'logs' / 'vterm.log'}\n")
         sys.exit(1)
 
 

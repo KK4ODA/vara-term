@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title VTerm - VARA BBS Terminal Client
+title VARA Term - VARA BBS Terminal Client
 
-:: -- VTerm Launcher --------------------------------------------------------------
-:: This script sets up the Python environment and launches VTerm.
+:: -- VARA Term Launcher --------------------------------------------------------------
+:: This script sets up the Python environment and launches VARA Term.
 :: Place this file in the same folder as main.py.
 :: --------------------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ echo  ##  ##   ##   ###### #####  ## # ##
 echo   ####    ##   ##     ## ##  ##   ##
 echo    ##     ##    ####  ##  ## ##   ##
 echo.
-echo                VTerm - VARA BBS Terminal Client  v1.0
+echo                VARA Term - VARA BBS Terminal Client  v1.0
 echo  --------------------------------------------------------------------------
 echo.
 
@@ -85,7 +85,7 @@ if errorlevel 1 goto manualinstall
 
 echo.
 echo  Python installed successfully.
-echo  Please CLOSE this window and run start_vterm.bat again
+echo  Please CLOSE this window and run start_vara_term.bat again
 echo  so the new PATH takes effect.
 echo.
 pause
@@ -230,7 +230,7 @@ if !MISSING!==1 (
 
 echo.
 echo  --------------------------------------------------------------------------
-echo  Starting VTerm...
+echo  Starting VARA Term...
 echo  --------------------------------------------------------------------------
 echo.
 
@@ -241,7 +241,7 @@ echo.
 if errorlevel 1 (
     echo.
     echo  --------------------------------------------------------------------------
-    echo  [ERROR] VTerm exited with an error ^(code %errorlevel%^).
+    echo  [ERROR] VARA Term exited with an error ^(code %errorlevel%^).
     echo  Check the logs folder for details:
     echo    %USERPROFILE%\VTerm\logs\vterm.log
     echo  --------------------------------------------------------------------------

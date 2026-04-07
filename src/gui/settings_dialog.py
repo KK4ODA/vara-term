@@ -1,5 +1,5 @@
 """
-gui/settings_dialog.py — Settings/configuration dialog for VTerm.
+gui/settings_dialog.py — Settings/configuration dialog for VARA Term.
 
 Four tabs: Terminal Setup, Modem Configuration, Security, Macros.
 Each tab wraps its content in a QScrollArea so nothing is clipped
@@ -26,7 +26,7 @@ class SettingsDialog(QDialog):
     def __init__(self, config, parent=None):
         super().__init__(parent)
         self.config = config
-        self.setWindowTitle("VTerm Settings")
+        self.setWindowTitle("VARA Term Settings")
         self.setMinimumWidth(520)
         self.setMinimumHeight(460)
         self.resize(560, 580)  # comfortable default
@@ -174,7 +174,7 @@ class SettingsDialog(QDialog):
         self.fm_data_port = QSpinBox()
         self.fm_data_port.setRange(1, 65535)
         fm_form.addRow("Data Port:", self.fm_data_port)
-        self.fm_auto_launch = QCheckBox("Start VARA FM with VTerm (and close on exit)")
+        self.fm_auto_launch = QCheckBox("Start VARA FM with VARA Term (and close on exit)")
         fm_form.addRow(self.fm_auto_launch)
         self.fm_exe_path = QLineEdit()
         self.fm_exe_path.setPlaceholderText(r"C:\VARA FM\VARAFM.exe")
@@ -198,7 +198,7 @@ class SettingsDialog(QDialog):
         self.hf_data_port = QSpinBox()
         self.hf_data_port.setRange(1, 65535)
         hf_form.addRow("Data Port:", self.hf_data_port)
-        self.hf_auto_launch = QCheckBox("Start VARA HF with VTerm (and close on exit)")
+        self.hf_auto_launch = QCheckBox("Start VARA HF with VARA Term (and close on exit)")
         hf_form.addRow(self.hf_auto_launch)
         self.hf_exe_path = QLineEdit()
         self.hf_exe_path.setPlaceholderText(r"C:\VARA HF\VARA HF.exe")

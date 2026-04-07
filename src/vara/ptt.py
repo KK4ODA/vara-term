@@ -1,5 +1,5 @@
 """
-vara/ptt.py — PTT control for VTerm (VARA HF only).
+vara/ptt.py — PTT control for VARA Term (VARA HF only).
 
 VARA FM controls PTT internally through its own settings.
 VARA HF sends "PTT ON" / "PTT OFF" events on the command port and

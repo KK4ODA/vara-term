@@ -1,6 +1,6 @@
 # RELEASE CHECKLIST
 
-Use this checklist whenever publishing a new version of VTERM.
+Use this checklist whenever publishing a new version of VARA Term.
 
 ------------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ On GitHub:
 Fill in:
 
 Tag version: `vX.Y.Z`\
-Release title: `VTERM X.Y.Z`
+Release title: `VARA Term X.Y.Z`
 
 ------------------------------------------------------------------------
 

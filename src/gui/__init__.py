@@ -1,1 +1,1 @@
-# gui/ — VTerm graphical interface
+# gui/ — VARA Term graphical interface

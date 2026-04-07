@@ -1,5 +1,5 @@
 """
-vara/connection.py — Connection state machine for VTerm.
+vara/connection.py — Connection state machine for VARA Term.
 
 Tracks the lifecycle: IDLE → CONNECTING → CONNECTED → DISCONNECTING → IDLE
 """

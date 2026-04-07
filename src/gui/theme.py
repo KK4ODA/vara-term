@@ -1,5 +1,5 @@
 """
-gui/theme.py — Design system for VTerm.
+gui/theme.py — Design system for VARA Term.
 
 Single source of truth for colors, the global stylesheet, and
 reusable style helpers.  Every hex color literal in the GUI codebase

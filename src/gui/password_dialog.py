@@ -1,5 +1,5 @@
 """
-gui/password_dialog.py — Password manager dialog for VTerm.
+gui/password_dialog.py — Password manager dialog for VARA Term.
 
 Manages per-station passwords for HMAC-SHA256 authentication.
 """

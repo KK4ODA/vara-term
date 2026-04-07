@@ -1,5 +1,5 @@
 """
-passwords.py — Secure password storage for VTerm.
+passwords.py — Secure password storage for VARA Term.
 
 Stores per-station passwords encrypted with Fernet (AES-128-CBC)
 derived from a master passphrase.  Optionally uses the OS keyring
@@ -32,7 +32,7 @@ except ImportError:
     HAS_FERNET = False
 
 
-_SERVICE_NAME = "VTerm"
+_SERVICE_NAME = "VARA Term"
 _KEYRING_KEY = "vterm_master_key"
 
 
@@ -50,7 +50,7 @@ class PasswordStore:
     encrypted in a JSON file using Fernet.
     """
 
-    def __init__(self, data_dir: Path, master_passphrase: str = "VTermDefault"):
+    def __init__(self, data_dir: Path, master_passphrase: str = "VARATermDefault"):
         self._path = data_dir / "passwords.enc"
         self._passwords: Dict[str, dict] = {}
         self._fernet: Optional[object] = None

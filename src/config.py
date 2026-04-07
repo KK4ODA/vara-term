@@ -1,5 +1,5 @@
 """
-config.py — Configuration management for VTerm.
+config.py — Configuration management for VARA Term.
 
 Loads/saves settings from a JSON file in the user's app data directory.
 """
@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 log = logging.getLogger(__name__)
 
-APP_NAME = "VTerm"
+APP_NAME = "VARA Term"
 
 
 def _read_version() -> str:
@@ -89,7 +89,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "max_retries": 5,
 
     # PTT (HF only — FM handles PTT internally)
-    "hf_ptt_method": "None (VOX)",  # "None (VOX)" or "OmniRig"
+    "hf_ptt_method": "OmniRig",  # "None (VOX)" or "OmniRig"
     "omnirig_rig_number": 1,  # OmniRig Rig 1 or 2
 
     # Terminal appearance

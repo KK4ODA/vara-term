@@ -1,13 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-vterm.spec — PyInstaller spec file for VTerm.
+vara_term.spec — PyInstaller spec file for VARA Term.
 
 Build with:
-    pyinstaller vterm.spec
+    pyinstaller vara_term.spec
 
-Produces: dist/VTerm/VTerm.exe  (one-directory mode)
+Produces: dist/VARA Term/VARA Term.exe  (one-directory mode)
     — or —
-    pyinstaller vterm.spec --onefile    (single .exe, slower startup)
+    pyinstaller vara_term.spec --onefile    (single .exe, slower startup)
 
 One-directory mode is recommended because:
   - Faster startup (no temp extraction)
@@ -168,7 +168,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='VTerm',
+    name='VARA Term',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -190,5 +190,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='VTerm',
+    name='VARA Term',
 )

@@ -1,7 +1,7 @@
 """
 _frozen.py — Path resolution helper for PyInstaller-frozen builds.
 
-When VTerm is run from source, paths are resolved relative to the source tree.
+When VARA Term is run from source, paths are resolved relative to the source tree.
 When frozen with PyInstaller (--onefile or --onedir), bundled data files live
 under sys._MEIPASS and the executable is at sys.executable.
 

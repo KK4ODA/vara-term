@@ -13,14 +13,14 @@
 ;    3. Compile: iscc installer.iss
 ;       — or —  Right-click installer.iss → Compile
 ;
-;  Output: dist\VTerm_Setup.exe
+;  Output: dist\VARA_Term_Setup.exe
 ; ═══════════════════════════════════════════════════════════════
 
-#define MyAppName "VTerm"
+#define MyAppName "VARA Term"
 #define MyAppVersion "1.0.1"
-#define MyAppPublisher "VTerm"
-#define MyAppURL "https://github.com/yourusername/vterm"
-#define MyAppExeName "VTerm.exe"
+#define MyAppPublisher "VARA Term"
+#define MyAppURL "https://github.com/KK4ODA/VTerm"
+#define MyAppExeName "VARA Term.exe"
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
@@ -35,21 +35,21 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 ; Output installer to dist\ folder
 OutputDir=dist
-OutputBaseFilename=VTerm_Setup_{#MyAppVersion}
+OutputBaseFilename=VARA_Term_Setup_{#MyAppVersion}
 ; Require admin only if installing to Program Files
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 ; Compression
 Compression=lzma2/max
 SolidCompression=yes
-; Close VTerm if it is running before upgrading
+; Close VARA Term if it is running before upgrading
 CloseApplications=yes
 CloseApplicationsFilter=*.exe
 RestartApplications=yes
 ; UI
 WizardStyle=modern
 ; Uncomment when you have an icon:
-; SetupIconFile=resources\vterm.ico
+; SetupIconFile=resources\vara_term.ico
 ; UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
@@ -60,8 +60,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Bundle the entire one-dir output
-Source: "dist\VTerm\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; NOTE: Don't use "Source: dist\VTerm\VTerm.exe" alone — the .exe needs its DLLs
+Source: "dist\VARA Term\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; NOTE: Don't use "Source: dist\VARA Term\VTerm.exe" alone — the .exe needs its DLLs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
