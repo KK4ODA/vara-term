@@ -8,6 +8,7 @@ VARA modem interface, and authentication interceptor.
 import logging
 import os
 import subprocess
+import sys
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -134,6 +135,12 @@ class MainWindow(QMainWindow):
         commands_action = QAction("BBS &Commands Reference", self)
         commands_action.triggered.connect(self._show_commands_ref)
         help_menu.addAction(commands_action)
+
+        help_menu.addSeparator()
+
+        update_action = QAction("Check for &Updates...", self)
+        update_action.triggered.connect(self._check_for_updates)
+        help_menu.addAction(update_action)
 
     def _build_toolbar(self):
         """Build two-row connection bar replacing the old single-row QToolBar.
@@ -313,6 +320,27 @@ class MainWindow(QMainWindow):
         self.ptt_label.setStyleSheet("font-weight: bold;")
         self.status_bar.addPermanentWidget(self.ptt_label)
 
+        # Update-available indicator (clickable, hidden by default)
+        self._update_label = QLabel("")
+        self._update_label.setStyleSheet(
+            f"color: {C['warning']}; font-weight: bold;"
+        )
+        self._update_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._update_label.setToolTip("Click to view available update")
+        self._update_label.hide()
+        self._update_label.mousePressEvent = lambda _ev: self._show_update_dialog()
+        self.status_bar.addPermanentWidget(self._update_label)
+        self._updater = None
+        self._pending_update = None
+
+        # Chat room indicator
+        self._chat_label = QLabel("")
+        self._chat_label.setStyleSheet(f"color: {C['info']}; font-weight: bold;")
+        self._chat_label.hide()
+        self.status_bar.addPermanentWidget(self._chat_label)
+        self._chat_room = ""
+        self._detected_transport = ""
+
     @staticmethod
     def _sep() -> QLabel:
         sep = QLabel("│")
@@ -363,16 +391,11 @@ class MainWindow(QMainWindow):
             self.target_input.setFocus()
             return
 
-        self.terminal.display.append_system(
-            f"Connecting to {target} as {callsign} via "
-            f"{'VARA HF' if self.config.is_hf else 'VARA FM'}...")
-
-        host = self.config.modem_host
-        cmd_port = self.config.cmd_port
-        data_port = self.config.data_port
+        mode = self.config.get("vara_mode", "VARA FM")
+        is_agwpe = (mode == "AGWPE")
 
         self.terminal.display.append_system(
-            f"VARA modem: {host}:{cmd_port}/{data_port}")
+            f"Connecting to {target} as {callsign} via {mode}...")
 
         # Store target for later use
         self._target = target
@@ -384,8 +407,23 @@ class MainWindow(QMainWindow):
         # Save target to recent stations history immediately
         self._add_to_target_history(target)
 
-        # Connect TCP to modem
-        self.modem.connect_to_modem(host, cmd_port, data_port)
+        if is_agwpe:
+            # Switch to AGWPE modem
+            self._swap_modem_agwpe()
+            host = self.config.get("soundmodem_host", "127.0.0.1")
+            port = self.config.get("soundmodem_port", 8000)
+            self.terminal.display.append_system(
+                f"Soundmodem (AGWPE): {host}:{port}")
+            self.modem.connect_to_modem(host, port)
+        else:
+            # Ensure we're using VARAModem
+            self._swap_modem_vara()
+            host = self.config.modem_host
+            cmd_port = self.config.cmd_port
+            data_port = self.config.data_port
+            self.terminal.display.append_system(
+                f"VARA modem: {host}:{cmd_port}/{data_port}")
+            self.modem.connect_to_modem(host, cmd_port, data_port)
 
         # Start OmniRig PTT for HF mode (if configured)
         if self.config.is_hf and self.config.get("hf_ptt_method") == "OmniRig":
@@ -467,6 +505,9 @@ class MainWindow(QMainWindow):
         if self.config.get("session_logging"):
             self._start_session_log(remote)
 
+        # Query BBS transport type
+        QTimer.singleShot(1000, self._query_transport)
+
     @pyqtSlot()
     def _on_rf_disconnected(self):
         """RF session has ended."""
@@ -476,6 +517,9 @@ class MainWindow(QMainWindow):
         self._close_session_log()
         self.auth.reset()
         self.sn_graph.clear_data()
+        self._chat_room = ""
+        self._chat_label.hide()
+        self._detected_transport = ""
         # Release PTT (HF safety)
         if self.ptt.is_enabled:
             self.ptt.stop()
@@ -559,6 +603,15 @@ class MainWindow(QMainWindow):
 
     def _process_line(self, line: str):
         """Process a single complete line from the BBS."""
+        # Transport auto-detection (suppress from display)
+        if self._handle_transport_response(line):
+            self._log_line(line)
+            return
+
+        # Chat mode detection
+        self._check_chat_enter(line)
+        self._check_chat_exit(line)
+
         target = getattr(self, '_target', '')
         password = self.passwords.get_password(target)
 
@@ -1116,6 +1169,108 @@ class MainWindow(QMainWindow):
             "<tr><td><b>B</b></td><td>Disconnect</td></tr>"
             "</table>"
         )
+
+    # ── Transport switching ─────────────────────────────────────────
+
+    def _swap_modem_agwpe(self):
+        """Replace the current modem with an AGWPEModem if not already."""
+        from vara.agwpe_modem import AGWPEModem
+        if isinstance(self.modem, AGWPEModem):
+            return
+        self.modem.disconnect_from_modem()
+        self.modem = AGWPEModem()
+        self._connect_signals()
+
+    def _swap_modem_vara(self):
+        """Replace the current modem with a VARAModem if not already."""
+        if isinstance(self.modem, VARAModem):
+            return
+        self.modem.disconnect_from_modem()
+        self.modem = VARAModem()
+        self._connect_signals()
+
+    # ── Transport detection ──────────────────────────────────────────
+
+    def _query_transport(self):
+        """Send ;TRANSPORT? to detect the BBS transport type."""
+        self.modem.send_data(";TRANSPORT?\r\n")
+
+    def _handle_transport_response(self, line: str) -> bool:
+        """Check if a line is a ;TRANSPORT response.  Returns True if handled."""
+        if line.startswith(";TRANSPORT "):
+            transport = line[11:].strip()
+            self._detected_transport = transport
+            self.terminal.display.append_system(f"BBS transport: {transport}")
+            return True
+        return False
+
+    # ── Chat / converse mode indicator ────────────────────────────────
+
+    def _check_chat_enter(self, line: str):
+        """Detect entry into a chat room and show indicator."""
+        if "Joined room" in line and "Type /EXIT" in line:
+            # Extract room name: "Joined room ROOMNAME. N user(s) here."
+            try:
+                room = line.split("Joined room")[1].split(".")[0].strip()
+            except (IndexError, ValueError):
+                room = "CHAT"
+            self._chat_room = room
+            self._chat_label.setText(f"CHAT: {room}")
+            self._chat_label.show()
+
+    def _check_chat_exit(self, line: str):
+        """Detect exit from a chat room and clear indicator."""
+        if self._chat_room and ("left the room" in line.lower()
+                                or "Chat ended" in line
+                                or line.strip().startswith("*** Left")):
+            self._chat_room = ""
+            self._chat_label.hide()
+
+    # ── Software update ────────────────────────────────────────────
+
+    def set_updater(self, updater):
+        """Called by main.py after construction to wire the updater."""
+        self._updater = updater
+        self._updater.update_available.connect(
+            self._on_update_available, Qt.ConnectionType.QueuedConnection,
+        )
+
+    def _on_update_available(self, check_result):
+        self._pending_update = check_result
+        n = len(check_result.commits)
+        self._update_label.setText(f"UPDATE ({n})")
+        self._update_label.show()
+
+    def _show_update_dialog(self):
+        if not self._updater or not self._pending_update:
+            return
+        from gui.update_dialog import UpdateDialog
+        dlg = UpdateDialog(
+            self._pending_update,
+            self._updater,
+            self._restart,
+            parent=self,
+        )
+        dlg.exec()
+
+    def _check_for_updates(self):
+        """Manual 'Check for Updates' from Help menu."""
+        if not self._updater:
+            QMessageBox.information(
+                self, "Updates",
+                "Updater not available (not a git repository).",
+            )
+            return
+        self.status_bar.showMessage("Checking for updates...", 5000)
+        self._updater.check_once_async()
+
+    def _restart(self):
+        """Graceful restart: launch a new process and exit."""
+        import subprocess as _sp
+        args = [sys.executable] + sys.argv
+        _sp.Popen(args, cwd=os.path.dirname(os.path.abspath(sys.argv[0])))
+        from PyQt6.QtWidgets import QApplication
+        QApplication.instance().quit()
 
     # ── Welcome ────────────────────────────────────────────────────
 

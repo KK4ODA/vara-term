@@ -80,6 +80,13 @@ def main():
         window = MainWindow(config, password_store)
         window.show()
 
+        # Software updater
+        from updater import Updater
+        updater = Updater(config)
+        window.set_updater(updater)
+        if config.get("check_updates_on_startup", True):
+            updater.check_once_async()
+
         log.info("VARA Term GUI launched")
         sys.exit(app.exec())
 

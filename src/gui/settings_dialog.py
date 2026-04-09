@@ -93,10 +93,13 @@ class SettingsDialog(QDialog):
         self.mode_group = QButtonGroup(self)
         self.fm_radio = QRadioButton("VARA FM")
         self.hf_radio = QRadioButton("VARA HF")
+        self.agwpe_radio = QRadioButton("Soundmodem (AGWPE)")
         self.mode_group.addButton(self.fm_radio)
         self.mode_group.addButton(self.hf_radio)
+        self.mode_group.addButton(self.agwpe_radio)
         mode_layout.addWidget(self.fm_radio)
         mode_layout.addWidget(self.hf_radio)
+        mode_layout.addWidget(self.agwpe_radio)
         layout.addWidget(mode_group)
 
         # HF Settings — only visible when HF mode selected
@@ -143,8 +146,13 @@ class SettingsDialog(QDialog):
 
         layout.addStretch()
 
-        # Toggle bandwidth groups when mode radio changes
+        # Toggle bandwidth groups and modem groups when mode changes
         self.fm_radio.toggled.connect(self._update_bw_groups)
+        self.fm_radio.toggled.connect(self._update_modem_groups)
+        self.hf_radio.toggled.connect(self._update_bw_groups)
+        self.hf_radio.toggled.connect(self._update_modem_groups)
+        self.agwpe_radio.toggled.connect(self._update_bw_groups)
+        self.agwpe_radio.toggled.connect(self._update_modem_groups)
 
         return self._make_scrollable(w)
 
@@ -229,6 +237,22 @@ class SettingsDialog(QDialog):
         ptt_form.addRow("OmniRig Rig Number:", self.omnirig_rig_spin)
         layout.addWidget(self.ptt_group)
 
+        # Soundmodem (AGWPE) settings
+        self.agwpe_group = QGroupBox("Soundmodem (AGWPE)")
+        agwpe_form = QFormLayout(self.agwpe_group)
+        agwpe_info = QLabel(
+            "Connect via Soundmodem, Direwolf, or any AGWPE-compatible\n"
+            "TNC over TCP for AX.25 packet radio."
+        )
+        agwpe_info.setStyleSheet(info_style("0 0 6px 0"))
+        agwpe_form.addRow(agwpe_info)
+        self.agwpe_host = QLineEdit()
+        agwpe_form.addRow("Host:", self.agwpe_host)
+        self.agwpe_port = QSpinBox()
+        self.agwpe_port.setRange(1, 65535)
+        agwpe_form.addRow("AGWPE Port:", self.agwpe_port)
+        layout.addWidget(self.agwpe_group)
+
         layout.addStretch()
 
         # Connect mode radio buttons (from Terminal Setup tab) to toggle groups
@@ -302,15 +326,18 @@ class SettingsDialog(QDialog):
     def _update_bw_groups(self):
         """Show only the active mode's bandwidth group."""
         is_fm = self.fm_radio.isChecked()
+        is_agwpe = self.agwpe_radio.isChecked()
         self.fm_bw_group.setVisible(is_fm)
-        self.hf_bw_group.setVisible(not is_fm)
+        self.hf_bw_group.setVisible(not is_fm and not is_agwpe)
 
     def _update_modem_groups(self):
-        """Grey out the inactive modem group based on VARA mode selection."""
+        """Grey out the inactive modem group based on mode selection."""
         is_fm = self.fm_radio.isChecked()
+        is_agwpe = self.agwpe_radio.isChecked()
         self.fm_modem_group.setEnabled(is_fm)
-        self.hf_modem_group.setEnabled(not is_fm)
-        self.ptt_group.setEnabled(not is_fm)
+        self.hf_modem_group.setEnabled(not is_fm and not is_agwpe)
+        self.ptt_group.setEnabled(not is_fm and not is_agwpe)
+        self.agwpe_group.setEnabled(is_agwpe)
 
     # ── Load / Save ────────────────────────────────────────────────
 
@@ -319,8 +346,11 @@ class SettingsDialog(QDialog):
         self.callsign_input.setText(c.get("my_callsign", ""))
         self.ssid_spin.setValue(c.get("my_ssid", 0))
 
-        if c.get("vara_mode") == "VARA HF":
+        mode = c.get("vara_mode", "VARA FM")
+        if mode == "VARA HF":
             self.hf_radio.setChecked(True)
+        elif mode == "AGWPE":
+            self.agwpe_radio.setChecked(True)
         else:
             self.fm_radio.setChecked(True)
 
@@ -359,6 +389,9 @@ class SettingsDialog(QDialog):
             self.hf_ptt_method.setCurrentIndex(idx)
         self.omnirig_rig_spin.setValue(c.get("omnirig_rig_number", 1))
 
+        self.agwpe_host.setText(c.get("soundmodem_host", "127.0.0.1"))
+        self.agwpe_port.setValue(c.get("soundmodem_port", 8000))
+
         # Auth tab
         self.auto_hmac_cb.setChecked(c.get("auto_respond_hmac", True))
         self.plaintext_fallback_cb.setChecked(c.get("allow_plaintext_fallback", True))
@@ -379,7 +412,12 @@ class SettingsDialog(QDialog):
         c = self.config
         c.set("my_callsign", self.callsign_input.text().upper().strip())
         c.set("my_ssid", self.ssid_spin.value())
-        c.set("vara_mode", "VARA HF" if self.hf_radio.isChecked() else "VARA FM")
+        if self.agwpe_radio.isChecked():
+            c.set("vara_mode", "AGWPE")
+        elif self.hf_radio.isChecked():
+            c.set("vara_mode", "VARA HF")
+        else:
+            c.set("vara_mode", "VARA FM")
         c.set("hf_bandwidth", int(self.hf_bw_combo.currentText()))
         c.set("fm_bandwidth", self.fm_bw_combo.currentText())
         c.set("font_family", self.font_family_combo.currentText())
@@ -402,6 +440,9 @@ class SettingsDialog(QDialog):
 
         c.set("hf_ptt_method", self.hf_ptt_method.currentText())
         c.set("omnirig_rig_number", self.omnirig_rig_spin.value())
+
+        c.set("soundmodem_host", self.agwpe_host.text())
+        c.set("soundmodem_port", self.agwpe_port.value())
 
         c.set("auto_respond_hmac", self.auto_hmac_cb.isChecked())
         c.set("allow_plaintext_fallback", self.plaintext_fallback_cb.isChecked())

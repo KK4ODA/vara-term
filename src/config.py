@@ -88,6 +88,10 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "fm_bandwidth": "NARROW",  # NARROW / WIDE
     "max_retries": 5,
 
+    # Soundmodem (AGWPE) — alternative transport
+    "soundmodem_host": "127.0.0.1",
+    "soundmodem_port": 8000,
+
     # PTT (HF only — FM handles PTT internally)
     "hf_ptt_method": "OmniRig",  # "None (VOX)" or "OmniRig"
     "omnirig_rig_number": 1,  # OmniRig Rig 1 or 2
@@ -115,6 +119,10 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
 
     # Command history
     "command_history_size": 100,
+
+    # Software updates
+    "check_updates_on_startup": True,
+    "update_branch": "main",
 }
 
 
