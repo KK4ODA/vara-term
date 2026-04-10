@@ -379,13 +379,25 @@ class SettingsDialog(QDialog):
         self.hf_bw_group.setVisible(not is_fm and not is_agwpe)
 
     def _update_modem_groups(self):
-        """Grey out the inactive modem group based on mode selection."""
+        """Show/hide modem groups based on mode selection.
+
+        All groups remain visible so settings can be configured before
+        switching modes.  Only the active mode's group is fully enabled;
+        inactive groups are dimmed but auto-launch checkboxes stay
+        editable so they can be toggled at any time.
+        """
         is_fm = self.fm_radio.isChecked()
         is_agwpe = self.agwpe_radio.isChecked()
+        is_hf = self.hf_radio.isChecked()
+
         self.fm_modem_group.setEnabled(is_fm)
-        self.hf_modem_group.setEnabled(not is_fm and not is_agwpe)
-        self.ptt_group.setEnabled(not is_fm and not is_agwpe)
+        self.hf_modem_group.setEnabled(is_hf)
+        self.ptt_group.setEnabled(is_hf)
         self.agwpe_group.setEnabled(is_agwpe)
+
+        # Auto-launch checkboxes should always be editable
+        self.fm_auto_launch.setEnabled(True)
+        self.hf_auto_launch.setEnabled(True)
 
     # ── Load / Save ────────────────────────────────────────────────
 
