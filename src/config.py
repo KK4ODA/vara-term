@@ -85,7 +85,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
 
     # RF settings
     "hf_bandwidth": 500,  # 500 / 2300 / 2750
-    "fm_bandwidth": "NARROW",  # NARROW / WIDE
+    "fm_bandwidth": "WIDE",  # NARROW / WIDE
     "max_retries": 5,
 
     # Soundmodem (AGWPE) — alternative transport
