@@ -73,6 +73,29 @@ def main():
         # Load configuration
         config = Config()
 
+        # Auto-update before GUI launch — pull and restart if updates found
+        if config.get("check_updates_on_startup", True):
+            try:
+                from updater import Updater
+                updater = Updater(config)
+                result = updater.check_for_updates()
+                if result.update_available:
+                    n = len(result.commits)
+                    log.info(f"Auto-update: {n} new commit(s) available")
+                    apply_result = updater.apply_update()
+                    if apply_result.success:
+                        log.info(
+                            f"Updated {apply_result.old_hash} -> "
+                            f"{apply_result.new_hash}, restarting..."
+                        )
+                        import subprocess as _sp
+                        _sp.Popen([sys.executable] + sys.argv)
+                        sys.exit(0)
+                    else:
+                        log.warning(f"Auto-update failed: {apply_result.error}")
+            except Exception as e:
+                log.warning(f"Auto-update check failed: {e}")
+
         # Load password store
         password_store = PasswordStore(config.app_data_dir)
 
@@ -80,12 +103,10 @@ def main():
         window = MainWindow(config, password_store)
         window.show()
 
-        # Software updater
+        # Updater for manual checks via Help menu
         from updater import Updater
         updater = Updater(config)
         window.set_updater(updater)
-        if config.get("check_updates_on_startup", True):
-            updater.check_once_async()
 
         log.info("VARA Term GUI launched")
         sys.exit(app.exec())
