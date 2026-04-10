@@ -65,12 +65,14 @@ class HamlibSettingsGroup(QGroupBox):
         self.rig_model_combo = QComboBox()
         self.rig_model_combo.setEditable(True)
         self.rig_model_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.rig_model_combo.setToolTip("Select your radio model from the Hamlib database.\nType to search. Must match your actual radio.")
         self._populate_rig_models()
         form.addRow("Rig Model:", self.rig_model_combo)
 
         # Serial port / device
         self.device_input = QLineEdit()
         self.device_input.setPlaceholderText("e.g. COM3 or /dev/ttyUSB0")
+        self.device_input.setToolTip("Serial port for CAT control.\nWindows: COM3, COM4, etc.\nLinux: /dev/ttyUSB0, etc.")
         form.addRow("Serial Port:", self.device_input)
 
         # Serial speed
@@ -78,16 +80,19 @@ class HamlibSettingsGroup(QGroupBox):
         self.serial_speed.addItems([
             "Auto", "4800", "9600", "19200", "38400", "57600", "115200",
         ])
+        self.serial_speed.setToolTip("Baud rate for CAT control serial port.\nAuto = let Hamlib detect. Check your radio manual.")
         form.addRow("Serial Speed:", self.serial_speed)
 
         # rigctld network settings
         self.rigctld_host = QLineEdit()
         self.rigctld_host.setPlaceholderText("127.0.0.1")
+        self.rigctld_host.setToolTip("Network address of the Hamlib rigctld daemon.\nUsually 127.0.0.1 for local.")
         form.addRow("rigctld Host:", self.rigctld_host)
 
         self.rigctld_port = QSpinBox()
         self.rigctld_port.setRange(1, 65535)
         self.rigctld_port.setValue(4532)
+        self.rigctld_port.setToolTip("TCP port for rigctld (default: 4532).")
         form.addRow("rigctld Port:", self.rigctld_port)
 
         # Auto-launch rigctld
@@ -109,6 +114,7 @@ class HamlibSettingsGroup(QGroupBox):
         # Extra rigctld arguments
         self.extra_args = QLineEdit()
         self.extra_args.setPlaceholderText("e.g. --set-conf=rts_state=ON")
+        self.extra_args.setToolTip("Additional rigctld command-line arguments.\nAdvanced: only use if you know what you're doing.")
         form.addRow("Extra Args:", self.extra_args)
 
         # Download / Update button

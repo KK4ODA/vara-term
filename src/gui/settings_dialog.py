@@ -80,10 +80,15 @@ class SettingsDialog(QDialog):
         self.callsign_input = QLineEdit()
         self.callsign_input.setPlaceholderText("e.g. KK4ABC")
         self.callsign_input.setMaxLength(10)
+        self.callsign_input.setToolTip("Your amateur radio callsign (e.g. KK4ODA).")
         id_form.addRow("My Callsign:", self.callsign_input)
 
         self.ssid_spin = QSpinBox()
         self.ssid_spin.setRange(0, 15)
+        self.ssid_spin.setToolTip(
+            "SSID suffix (0-15). Differentiates multiple stations\n"
+            "using the same callsign (e.g. KK4ODA-1)."
+        )
         id_form.addRow("SSID:", self.ssid_spin)
         layout.addWidget(id_group)
 
@@ -92,8 +97,11 @@ class SettingsDialog(QDialog):
         mode_layout = QHBoxLayout(mode_group)
         self.mode_group = QButtonGroup(self)
         self.fm_radio = QRadioButton("VARA FM")
+        self.fm_radio.setToolTip("VHF/UHF via VARA FM modem.")
         self.hf_radio = QRadioButton("VARA HF")
+        self.hf_radio.setToolTip("HF via VARA HF modem (requires PTT control).")
         self.agwpe_radio = QRadioButton("Soundmodem (AGWPE)")
+        self.agwpe_radio.setToolTip("AX.25 packet via Soundmodem, Direwolf,\nor any AGWPE-compatible TNC.")
         self.mode_group.addButton(self.fm_radio)
         self.mode_group.addButton(self.hf_radio)
         self.mode_group.addButton(self.agwpe_radio)
@@ -107,6 +115,12 @@ class SettingsDialog(QDialog):
         hf_form = QFormLayout(self.hf_bw_group)
         self.hf_bw_combo = QComboBox()
         self.hf_bw_combo.addItems(["500", "2300", "2750"])
+        self.hf_bw_combo.setToolTip(
+            "VARA HF session bandwidth.\n"
+            "500 Hz = slower but more robust in poor conditions.\n"
+            "2300 Hz = balanced (default).\n"
+            "2750 Hz = fastest, needs good signal."
+        )
         hf_form.addRow("Session Bandwidth (Hz):", self.hf_bw_combo)
         layout.addWidget(self.hf_bw_group)
 
@@ -115,6 +129,11 @@ class SettingsDialog(QDialog):
         fm_form = QFormLayout(self.fm_bw_group)
         self.fm_bw_combo = QComboBox()
         self.fm_bw_combo.addItems(["NARROW", "WIDE"])
+        self.fm_bw_combo.setToolTip(
+            "VARA FM bandwidth mode.\n"
+            "NARROW = 1200 Hz (12.5 kHz channel spacing).\n"
+            "WIDE = 2300 Hz (25 kHz channel spacing)."
+        )
         fm_form.addRow("FM Bandwidth:", self.fm_bw_combo)
         layout.addWidget(self.fm_bw_group)
 
@@ -136,9 +155,11 @@ class SettingsDialog(QDialog):
         conn_form = QFormLayout(conn_group)
         self.max_retries_spin = QSpinBox()
         self.max_retries_spin.setRange(1, 20)
+        self.max_retries_spin.setToolTip("Maximum connection retry attempts before giving up.")
         conn_form.addRow("Max Retries:", self.max_retries_spin)
 
         self.session_logging_cb = QCheckBox("Enable session logging")
+        self.session_logging_cb.setToolTip("Save a log of each session to the logs folder.\nUseful for reviewing conversations later.")
         conn_form.addRow(self.session_logging_cb)
         self.show_ptt_cb = QCheckBox("Show PTT ON/OFF events in terminal")
         conn_form.addRow(self.show_ptt_cb)
@@ -175,14 +196,18 @@ class SettingsDialog(QDialog):
         self.fm_modem_group = QGroupBox("VARA FM Modem")
         fm_form = QFormLayout(self.fm_modem_group)
         self.fm_host = QLineEdit()
+        self.fm_host.setToolTip("IP address of the VARA FM modem.\nUsually 127.0.0.1 for local.")
         fm_form.addRow("Host:", self.fm_host)
         self.fm_cmd_port = QSpinBox()
         self.fm_cmd_port.setRange(1, 65535)
+        self.fm_cmd_port.setToolTip("VARA FM TCP command port (default: 8300).\nMust match VARA FM modem settings.")
         fm_form.addRow("Command Port:", self.fm_cmd_port)
         self.fm_data_port = QSpinBox()
         self.fm_data_port.setRange(1, 65535)
+        self.fm_data_port.setToolTip("VARA FM TCP data port (default: 8301).\nMust match VARA FM modem settings.")
         fm_form.addRow("Data Port:", self.fm_data_port)
         self.fm_auto_launch = QCheckBox("Start VARA FM with VARA Term (and close on exit)")
+        self.fm_auto_launch.setToolTip("Automatically start VARA FM modem when\nVARA Term launches, and close it on exit.")
         fm_form.addRow(self.fm_auto_launch)
         self.fm_exe_path = QLineEdit()
         self.fm_exe_path.setPlaceholderText(r"C:\VARA FM\VARAFM.exe")
@@ -199,14 +224,18 @@ class SettingsDialog(QDialog):
         self.hf_modem_group = QGroupBox("VARA HF Modem")
         hf_form = QFormLayout(self.hf_modem_group)
         self.hf_host = QLineEdit()
+        self.hf_host.setToolTip("IP address of the VARA HF modem.\nUsually 127.0.0.1 for local.")
         hf_form.addRow("Host:", self.hf_host)
         self.hf_cmd_port = QSpinBox()
         self.hf_cmd_port.setRange(1, 65535)
+        self.hf_cmd_port.setToolTip("VARA HF TCP command port (default: 8300).\nMust match VARA HF modem settings.")
         hf_form.addRow("Command Port:", self.hf_cmd_port)
         self.hf_data_port = QSpinBox()
         self.hf_data_port.setRange(1, 65535)
+        self.hf_data_port.setToolTip("VARA HF TCP data port (default: 8301).\nMust match VARA HF modem settings.")
         hf_form.addRow("Data Port:", self.hf_data_port)
         self.hf_auto_launch = QCheckBox("Start VARA HF with VARA Term (and close on exit)")
+        self.hf_auto_launch.setToolTip("Automatically start VARA HF modem when\nVARA Term launches, and close it on exit.")
         hf_form.addRow(self.hf_auto_launch)
         self.hf_exe_path = QLineEdit()
         self.hf_exe_path.setPlaceholderText(r"C:\VARA HF\VARA HF.exe")
@@ -231,9 +260,15 @@ class SettingsDialog(QDialog):
         ptt_form.addRow(ptt_info)
         self.hf_ptt_method = QComboBox()
         self.hf_ptt_method.addItems(["None (VOX)", "OmniRig"])
+        self.hf_ptt_method.setToolTip(
+            "PTT control method for VARA HF.\n"
+            "None (VOX) = radio handles PTT automatically.\n"
+            "OmniRig = software PTT via OmniRig COM server."
+        )
         ptt_form.addRow("HF PTT Method:", self.hf_ptt_method)
         self.omnirig_rig_spin = QSpinBox()
         self.omnirig_rig_spin.setRange(1, 2)
+        self.omnirig_rig_spin.setToolTip("OmniRig rig number (1 or 2).\nSelect which OmniRig rig to use for PTT.")
         ptt_form.addRow("OmniRig Rig Number:", self.omnirig_rig_spin)
         layout.addWidget(self.ptt_group)
 
@@ -247,9 +282,11 @@ class SettingsDialog(QDialog):
         agwpe_info.setStyleSheet(info_style("0 0 6px 0"))
         agwpe_form.addRow(agwpe_info)
         self.agwpe_host = QLineEdit()
+        self.agwpe_host.setToolTip("IP address of the Soundmodem/Direwolf host.\nUsually 127.0.0.1 for local.")
         agwpe_form.addRow("Host:", self.agwpe_host)
         self.agwpe_port = QSpinBox()
         self.agwpe_port.setRange(1, 65535)
+        self.agwpe_port.setToolTip("TCP port for the AGWPE interface.\nSoundmodem default: 8000.")
         agwpe_form.addRow("AGWPE Port:", self.agwpe_port)
         layout.addWidget(self.agwpe_group)
 
@@ -269,10 +306,21 @@ class SettingsDialog(QDialog):
         options_group = QGroupBox("Authentication Options")
         opts_form = QFormLayout(options_group)
         self.auto_hmac_cb = QCheckBox("Auto-respond to HMAC challenges")
+        self.auto_hmac_cb.setToolTip(
+            "Automatically respond to BBS HMAC-SHA256\n"
+            "authentication challenges using saved passwords.\n"
+            "No password is ever sent over RF."
+        )
         opts_form.addRow(self.auto_hmac_cb)
         self.plaintext_fallback_cb = QCheckBox("Allow plaintext fallback (with warning)")
+        self.plaintext_fallback_cb.setToolTip(
+            "If HMAC auth fails, fall back to sending the\n"
+            "password in plaintext. Less secure but compatible\n"
+            "with older BBS systems. A warning is shown."
+        )
         opts_form.addRow(self.plaintext_fallback_cb)
         self.show_auth_cb = QCheckBox("Show auth protocol messages in terminal (debug)")
+        self.show_auth_cb.setToolTip("Show the raw authentication protocol messages\nin the terminal. Useful for debugging auth issues.")
         opts_form.addRow(self.show_auth_cb)
         layout.addWidget(options_group)
 

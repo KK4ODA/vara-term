@@ -183,12 +183,18 @@ class MainWindow(QMainWindow):
         self.via1_input = QLineEdit()
         self.via1_input.setPlaceholderText("(optional)")
         self.via1_input.setMaximumWidth(120)
+        self.via1_input.setToolTip(
+            "First digipeater in the AX.25 path.\n"
+            "Leave blank for direct connection.\n"
+            "Used for HF or packet routing through relay stations."
+        )
         row1.addWidget(self.via1_input)
 
         row1.addWidget(QLabel("Via 2:"))
         self.via2_input = QLineEdit()
         self.via2_input.setPlaceholderText("(optional)")
         self.via2_input.setMaximumWidth(120)
+        self.via2_input.setToolTip("Second digipeater in the AX.25 path.\nOnly needed for multi-hop routes.")
         row1.addWidget(self.via2_input)
 
         self.connect_btn = QPushButton("  Connect  ")
@@ -209,6 +215,7 @@ class MainWindow(QMainWindow):
 
         self.mode_combo = QComboBox()
         self.mode_combo.setObjectName("modeCombo")
+        self.mode_combo.setToolTip("Switch between VARA FM, VARA HF, and\nSoundmodem (AGWPE) transport modes.")
         self.mode_combo.addItems(["VARA FM", "VARA HF"])
         if self.config.is_hf:
             self.mode_combo.setCurrentIndex(1)
@@ -219,6 +226,7 @@ class MainWindow(QMainWindow):
 
         self.status_dot = QLabel("●")
         self.status_dot.setObjectName("statusDot")
+        self.status_dot.setToolTip("Connection state indicator.\nGreen = connected, Red = disconnected.")
         self.status_dot.setStyleSheet(
             f"color: {STATE_HEX.get('red', C['error'])}; font-size: 14pt;")
         row2.addWidget(self.status_dot)
@@ -299,11 +307,13 @@ class MainWindow(QMainWindow):
         self.status_bar.addWidget(self._sep())
 
         self.sn_label = QLabel("S/N: —")
+        self.sn_label.setToolTip("Signal-to-Noise ratio reported by VARA modem.\nHigher values = better signal quality.")
         self.status_bar.addWidget(self.sn_label)
 
         self.status_bar.addWidget(self._sep())
 
         self.bw_label = QLabel("BW: —")
+        self.bw_label.setToolTip("Current session bandwidth in Hz.")
         self.status_bar.addWidget(self.bw_label)
 
         self.status_bar.addWidget(self._sep())
@@ -318,6 +328,7 @@ class MainWindow(QMainWindow):
 
         self.ptt_label = QLabel("")
         self.ptt_label.setStyleSheet("font-weight: bold;")
+        self.ptt_label.setToolTip("Push-to-Talk indicator.\nShown during HF transmission.")
         self.status_bar.addPermanentWidget(self.ptt_label)
 
         # Update-available indicator (clickable, hidden by default)

@@ -148,6 +148,11 @@ class _PasswordEntryDialog(QDialog):
 
         self.mode_combo = QComboBox()
         self.mode_combo.addItems(["HMAC-SHA256", "Plaintext Fallback"])
+        self.mode_combo.setToolTip(
+            "HMAC-SHA256 = secure challenge-response (recommended).\n"
+            "Password is never sent over RF.\n"
+            "Plaintext Fallback = sends password if HMAC fails."
+        )
         form.addRow("Auth Mode:", self.mode_combo)
 
         layout.addLayout(form)
