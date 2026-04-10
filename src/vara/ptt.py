@@ -226,8 +226,7 @@ class PTTController(QObject):
         thread so the reader is never blocked.
         """
         if not self._enabled:
-            log.warning(f"PTT {'ON' if ptt_on else 'OFF'} received but "
-                        f"PTT controller is DISABLED — event dropped!")
+            log.debug(f"PTT {'ON' if ptt_on else 'OFF'} ignored (controller disabled)")
             return
 
         with self._lock:
