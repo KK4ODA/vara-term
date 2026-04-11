@@ -186,7 +186,9 @@ class VARAModem(QObject):
             log.warning("send_data called but data socket not connected")
             return
         try:
-            self._data_sock.sendall(text.encode("utf-8"))
+            data = text.encode("utf-8")
+            self._data_sock.sendall(data)
+            log.info(f"Data TX: {len(data)} bytes -> data socket: {data[:80]!r}")
         except OSError as e:
             log.error(f"Data send error: {e}")
             self.error_signal.emit(f"Data send error: {e}")
