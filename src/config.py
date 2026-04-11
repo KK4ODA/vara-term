@@ -185,6 +185,13 @@ class Config:
                 macro["command"] = _MACRO_CMD_FIX[old_cmd]
                 changed = True
 
+        # v1.1 → v1.2: add operator identity fields to existing profiles
+        for profile in self._data.get("profiles", []):
+            if "my_callsign" not in profile:
+                profile["my_callsign"] = ""
+                profile["my_ssid"] = 0
+                changed = True
+
         if changed:
             log.info("Config migrated with updated defaults")
             self.save()
@@ -209,6 +216,20 @@ class Config:
     def full_callsign(self) -> str:
         call = self._data.get("my_callsign", "").upper().strip()
         ssid = self._data.get("my_ssid", 0)
+        if ssid and ssid != 0:
+            return f"{call}-{ssid}"
+        return call
+
+    def profile_full_callsign(self, profile: dict) -> str:
+        """Return the effective operator callsign for a profile.
+
+        Falls back to the global ``full_callsign`` when the profile does
+        not specify its own operator identity.
+        """
+        call = profile.get("my_callsign", "").upper().strip()
+        if not call:
+            return self.full_callsign
+        ssid = profile.get("my_ssid", 0)
         if ssid and ssid != 0:
             return f"{call}-{ssid}"
         return call

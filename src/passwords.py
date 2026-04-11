@@ -105,22 +105,59 @@ class PasswordStore:
 
     # ── Public API ──────────────────────────────────────────────────
 
-    def get_password(self, callsign: str) -> Optional[str]:
-        """Return the stored password for a callsign, or None."""
-        key = callsign.upper().strip().split("-")[0]
-        entry = self._passwords.get(key)
+    @staticmethod
+    def _make_key(callsign: str, operator: str = "") -> str:
+        """Build the storage key.
+
+        With *operator*: ``"KK2ODA@KK4ODA-5"`` (per-operator composite).
+        Without:          ``"KK4ODA-5"``        (legacy / shared).
+        """
+        target = callsign.upper().strip()
+        if operator:
+            return f"{operator.upper().strip()}@{target}"
+        return target
+
+    def get_password(self, callsign: str,
+                     operator: str = "") -> Optional[str]:
+        """Return the stored password for a callsign, or None.
+
+        Lookup order (first match wins):
+          1. OPERATOR@TARGET       (composite, exact target)
+          2. OPERATOR@BASE_TARGET  (composite, SSID-stripped target)
+          3. BASE_TARGET           (legacy, SSID-stripped)
+          4. TARGET                (legacy, exact)
+        """
+        target = callsign.upper().strip()
+        base_target = target.split("-")[0]
+
+        if operator:
+            op = operator.upper().strip()
+            # 1. composite exact
+            entry = self._passwords.get(f"{op}@{target}")
+            if entry:
+                return entry.get("password")
+            # 2. composite base
+            if base_target != target:
+                entry = self._passwords.get(f"{op}@{base_target}")
+                if entry:
+                    return entry.get("password")
+
+        # 3. legacy base
+        entry = self._passwords.get(base_target)
         if entry:
             return entry.get("password")
-        # Also try with full callsign (with SSID)
-        entry = self._passwords.get(callsign.upper().strip())
-        if entry:
-            return entry.get("password")
+        # 4. legacy exact
+        if base_target != target:
+            entry = self._passwords.get(target)
+            if entry:
+                return entry.get("password")
         return None
 
     def set_password(self, callsign: str, password: str,
-                     auth_mode: str = "HMAC-SHA256"):
+                     auth_mode: str = "HMAC-SHA256",
+                     operator: str = ""):
         """Store or update a password for a callsign."""
-        key = callsign.upper().strip()
+        key = self._make_key(callsign, operator)
         self._passwords[key] = {
             "password": password,
             "auth_mode": auth_mode,
@@ -129,24 +166,45 @@ class PasswordStore:
         self._save()
         log.info(f"Password saved for {key}")
 
-    def remove_password(self, callsign: str):
-        key = callsign.upper().strip()
+    def remove_password(self, callsign: str, operator: str = ""):
+        key = self._make_key(callsign, operator)
         if key in self._passwords:
             del self._passwords[key]
             self._save()
 
-    def update_last_used(self, callsign: str):
-        key = callsign.upper().strip().split("-")[0]
-        entry = self._passwords.get(key)
+    def remove_by_key(self, key: str):
+        """Remove a password by its raw storage key (used by the dialog)."""
+        if key in self._passwords:
+            del self._passwords[key]
+            self._save()
+
+    def update_last_used(self, callsign: str, operator: str = ""):
+        """Update last-used timestamp, searching composite then legacy keys."""
+        target = callsign.upper().strip()
+        base_target = target.split("-")[0]
+
+        entry = None
+        if operator:
+            op = operator.upper().strip()
+            entry = self._passwords.get(f"{op}@{target}")
+            if not entry and base_target != target:
+                entry = self._passwords.get(f"{op}@{base_target}")
         if not entry:
-            entry = self._passwords.get(callsign.upper().strip())
+            entry = self._passwords.get(base_target)
+        if not entry and base_target != target:
+            entry = self._passwords.get(target)
+
         if entry:
             entry["last_used"] = datetime.now(timezone.utc).isoformat()
             self._save()
 
     def get_all(self) -> Dict[str, dict]:
-        """Return all stored entries {callsign: {password, auth_mode, last_used}}."""
+        """Return all stored entries {key: {password, auth_mode, last_used}}.
+
+        Keys may be ``"TARGET"`` (legacy) or ``"OPERATOR@TARGET"``
+        (composite).
+        """
         return dict(self._passwords)
 
-    def has_password(self, callsign: str) -> bool:
-        return self.get_password(callsign) is not None
+    def has_password(self, callsign: str, operator: str = "") -> bool:
+        return self.get_password(callsign, operator) is not None

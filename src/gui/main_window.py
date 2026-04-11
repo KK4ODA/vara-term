@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
         self._session_log_file = None
         self._session_start: Optional[datetime] = None
         self._data_buffer = ""
+        self._active_profile: Optional[dict] = None
 
         self.setWindowTitle(f"{APP_NAME} — VARA BBS Terminal Client")
         self.setMinimumSize(800, 600)
@@ -388,7 +389,7 @@ class MainWindow(QMainWindow):
 
     def _on_connect(self):
         """Initiate a connection to the target BBS."""
-        callsign = self.config.full_callsign
+        callsign = self._effective_callsign()
         if not callsign:
             QMessageBox.warning(self, "Configuration Error",
                                 "Please set your callsign in Settings → Terminal Setup.")
@@ -454,7 +455,7 @@ class MainWindow(QMainWindow):
         self.modem_status_label.setText("Modem: Connected")
         self.modem_status_label.setStyleSheet(f"color: {C['success']};")
 
-        callsign = self.config.full_callsign
+        callsign = self._effective_callsign()
         is_hf = self.config.is_hf
         bw = self.config.get("hf_bandwidth", 500)
         self.modem.initialize_modem(callsign, is_hf, bw)
@@ -471,7 +472,7 @@ class MainWindow(QMainWindow):
         target = getattr(self, '_target', '')
         via1 = getattr(self, '_via1', '')
         via2 = getattr(self, '_via2', '')
-        callsign = self.config.full_callsign
+        callsign = self._effective_callsign()
 
         self.terminal.display.append_system(f"Initiating RF connection to {target}...")
         self.modem.rf_connect(callsign, target, via1, via2)
@@ -480,7 +481,7 @@ class MainWindow(QMainWindow):
     def _on_rf_connected(self, calls_str: str):
         """RF session is now active.  Resolve which call is the remote."""
         parts = calls_str.split()
-        my_call = self.config.full_callsign.upper()
+        my_call = self._effective_callsign().upper()
 
         # Figure out which is the remote call
         if len(parts) == 2:
@@ -605,7 +606,7 @@ class MainWindow(QMainWindow):
                 # Auth interceptor might want to suppress ">" prompts during auth
                 action = self.auth.process_line(
                     prompt,
-                    self.passwords.get_password(getattr(self, '_target', '')),
+                    self.passwords.get_password(getattr(self, '_target', ''), self._effective_callsign()),
                     self.config.get("auto_respond_hmac", True),
                     self.config.get("show_auth_protocol", False),
                 )
@@ -624,7 +625,7 @@ class MainWindow(QMainWindow):
         self._check_chat_exit(line)
 
         target = getattr(self, '_target', '')
-        password = self.passwords.get_password(target)
+        password = self.passwords.get_password(target, self._effective_callsign())
 
         action = self.auth.process_line(
             line,
@@ -652,7 +653,7 @@ class MainWindow(QMainWindow):
             # Custom display text
             if action.is_success:
                 self.terminal.display.append_success(action.display_text)
-                self.passwords.update_last_used(target)
+                self.passwords.update_last_used(target, self._effective_callsign())
             elif action.is_error:
                 self.terminal.display.append_error(action.display_text)
             elif action.is_warning:
@@ -859,18 +860,48 @@ class MainWindow(QMainWindow):
 
     # ── Profiles ───────────────────────────────────────────────────
 
+    def _effective_callsign(self) -> str:
+        """Return the active operator callsign.
+
+        Uses the selected profile's identity if one is set, otherwise
+        falls back to the global ``my_callsign``/``my_ssid`` in config.
+        This never mutates the persisted config.
+        """
+        if self._active_profile:
+            return self.config.profile_full_callsign(self._active_profile)
+        return self.config.full_callsign
+
+    def _update_title(self):
+        call = self._effective_callsign()
+        if call:
+            self.setWindowTitle(f"{APP_NAME} — {call}")
+        else:
+            self.setWindowTitle(f"{APP_NAME} — VARA BBS Terminal Client")
+
     def _refresh_profiles(self):
         self.profile_combo.clear()
         self.profile_combo.addItem("(none)")
         for p in self.config.get_profiles():
-            self.profile_combo.addItem(p.get("name", "Untitled"))
+            name = p.get("name", "Untitled")
+            my_call = p.get("my_callsign", "")
+            if my_call:
+                ssid = p.get("my_ssid", 0)
+                label = f"{my_call}-{ssid}" if ssid else my_call
+                label = f"{label} — {name}"
+            else:
+                label = name
+            self.profile_combo.addItem(label)
 
     def _on_profile_selected(self, index: int):
         if index <= 0:
+            self._active_profile = None
+            self._update_title()
             return
         profiles = self.config.get_profiles()
         if 0 <= index - 1 < len(profiles):
             p = profiles[index - 1]
+            self._active_profile = p
+            self._update_title()
             self.target_input.setCurrentText(p.get("target_callsign", ""))
             self.via1_input.setText(p.get("via1", ""))
             self.via2_input.setText(p.get("via2", ""))
@@ -893,7 +924,7 @@ class MainWindow(QMainWindow):
             self._session_log_file.write(
                 f"VARA Term Session Log\n"
                 f"Date: {datetime.now().isoformat()}\n"
-                f"Station: {self.config.full_callsign}\n"
+                f"Station: {self._effective_callsign()}\n"
                 f"Remote: {remote}\n"
                 f"Mode: {self.config.get('vara_mode')}\n"
                 f"{'─' * 60}\n\n"
@@ -1110,7 +1141,10 @@ class MainWindow(QMainWindow):
             self._update_ui_state()
 
     def _open_passwords(self):
-        dlg = PasswordDialog(self.passwords, self)
+        dlg = PasswordDialog(
+            self.passwords, self,
+            effective_callsign=self._effective_callsign(),
+        )
         dlg.exec()
 
     def _open_profiles(self):
@@ -1120,6 +1154,8 @@ class MainWindow(QMainWindow):
         self._refresh_profiles()
 
     def _connect_from_profile(self, profile: dict):
+        self._active_profile = profile
+        self._update_title()
         self.target_input.setCurrentText(profile.get("target_callsign", ""))
         self.via1_input.setText(profile.get("via1", ""))
         self.via2_input.setText(profile.get("via2", ""))

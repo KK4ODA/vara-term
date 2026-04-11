@@ -2,6 +2,8 @@
 gui/password_dialog.py — Password manager dialog for VARA Term.
 
 Manages per-station passwords for HMAC-SHA256 authentication.
+Passwords are keyed by ``OPERATOR@TARGET`` (per-operator) or just
+``TARGET`` (legacy / shared).
 """
 
 import logging
@@ -20,11 +22,12 @@ log = logging.getLogger(__name__)
 class PasswordDialog(QDialog):
     """Password manager for saved BBS station credentials."""
 
-    def __init__(self, password_store, parent=None):
+    def __init__(self, password_store, parent=None, effective_callsign: str = ""):
         super().__init__(parent)
         self.store = password_store
+        self._effective_callsign = effective_callsign
         self.setWindowTitle("Password Manager")
-        self.setMinimumWidth(550)
+        self.setMinimumWidth(620)
         self.setMinimumHeight(350)
         if parent and parent.styleSheet():
             self.setStyleSheet(parent.styleSheet())
@@ -42,15 +45,16 @@ class PasswordDialog(QDialog):
         layout.addWidget(info)
 
         # Table
-        self.table = QTableWidget(0, 4)
+        self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(
-            ["Target Callsign", "Password", "Auth Mode", "Last Used"]
+            ["Operator", "Target", "Password", "Auth Mode", "Last Used"]
         )
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         layout.addWidget(self.table)
@@ -74,65 +78,116 @@ class PasswordDialog(QDialog):
         close_btn.rejected.connect(self.accept)
         layout.addWidget(close_btn)
 
+    @staticmethod
+    def _split_key(key: str):
+        """Split a storage key into (operator, target).
+
+        ``"KK2ODA@KK4ODA-5"`` → ``("KK2ODA", "KK4ODA-5")``
+        ``"KK4ODA-5"``         → ``("", "KK4ODA-5")``
+        """
+        if "@" in key:
+            operator, target = key.split("@", 1)
+            return operator, target
+        return "", key
+
     def _refresh_table(self):
         entries = self.store.get_all()
         self.table.setRowCount(len(entries))
-        for row, (callsign, data) in enumerate(sorted(entries.items())):
-            self.table.setItem(row, 0, QTableWidgetItem(callsign))
-            self.table.setItem(row, 1, QTableWidgetItem("●●●●●●●●"))
-            self.table.setItem(row, 2, QTableWidgetItem(
-                data.get("auth_mode", "HMAC-SHA256")))
+        for row, (key, data) in enumerate(sorted(entries.items())):
+            operator, target = self._split_key(key)
+            # Store the raw key for later retrieval
+            op_item = QTableWidgetItem(operator or "(any)")
+            op_item.setData(Qt.ItemDataRole.UserRole, key)
+            self.table.setItem(row, 0, op_item)
+            self.table.setItem(row, 1, QTableWidgetItem(target))
+            self.table.setItem(row, 2, QTableWidgetItem("\u25cf" * 8))
             self.table.setItem(row, 3, QTableWidgetItem(
+                data.get("auth_mode", "HMAC-SHA256")))
+            self.table.setItem(row, 4, QTableWidgetItem(
                 data.get("last_used", "Never")))
 
     def _add_password(self):
-        dlg = _PasswordEntryDialog(self)
+        dlg = _PasswordEntryDialog(self,
+                                   default_operator=self._effective_callsign)
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            self.store.set_password(dlg.callsign, dlg.password, dlg.auth_mode)
+            self.store.set_password(
+                dlg.target, dlg.password, dlg.auth_mode,
+                operator=dlg.operator,
+            )
             self._refresh_table()
 
     def _edit_password(self):
         row = self.table.currentRow()
         if row < 0:
             return
-        callsign = self.table.item(row, 0).text()
-        current_pw = self.store.get_password(callsign) or ""
-        dlg = _PasswordEntryDialog(self, callsign=callsign, password=current_pw)
+        raw_key = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        operator, target = self._split_key(raw_key)
+        current_pw = self.store.get_password(target, operator) or ""
+        dlg = _PasswordEntryDialog(
+            self,
+            operator=operator,
+            target=target,
+            password=current_pw,
+            default_operator=self._effective_callsign,
+        )
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            self.store.set_password(dlg.callsign, dlg.password, dlg.auth_mode)
+            # Remove old key if the operator/target changed
+            new_key = self.store._make_key(dlg.target, dlg.operator)
+            if new_key != raw_key:
+                self.store.remove_by_key(raw_key)
+            self.store.set_password(
+                dlg.target, dlg.password, dlg.auth_mode,
+                operator=dlg.operator,
+            )
             self._refresh_table()
 
     def _remove_password(self):
         row = self.table.currentRow()
         if row < 0:
             return
-        callsign = self.table.item(row, 0).text()
+        raw_key = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        operator, target = self._split_key(raw_key)
+        label = f"{operator}@{target}" if operator else target
         reply = QMessageBox.question(
             self, "Confirm Removal",
-            f"Remove saved password for {callsign}?",
+            f"Remove saved password for {label}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
-            self.store.remove_password(callsign)
+            self.store.remove_by_key(raw_key)
             self._refresh_table()
 
 
 class _PasswordEntryDialog(QDialog):
     """Dialog for adding/editing a single password entry."""
 
-    def __init__(self, parent, callsign: str = "", password: str = ""):
+    def __init__(self, parent, *,
+                 operator: str = "",
+                 target: str = "",
+                 password: str = "",
+                 default_operator: str = ""):
         super().__init__(parent)
-        self.setWindowTitle("Add Password" if not callsign else "Edit Password")
-        self.setMinimumWidth(350)
+        editing = bool(target)
+        self.setWindowTitle("Edit Password" if editing else "Add Password")
+        self.setMinimumWidth(380)
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
-        self.call_input = QLineEdit(callsign)
-        self.call_input.setPlaceholderText("e.g. KK4ODA-5")
-        if callsign:
-            self.call_input.setReadOnly(True)
-        form.addRow("Target Callsign:", self.call_input)
+        self.operator_input = QLineEdit(operator or default_operator)
+        self.operator_input.setPlaceholderText("Your callsign (leave blank for shared)")
+        self.operator_input.setToolTip(
+            "Operator callsign this password belongs to.\n"
+            "Leave blank for a shared/global password that\n"
+            "any operator on this TERM can use."
+        )
+        form.addRow("Operator:", self.operator_input)
+
+        self.target_input = QLineEdit(target)
+        self.target_input.setPlaceholderText("e.g. KK4ODA-5")
+        if editing:
+            self.target_input.setReadOnly(True)
+        form.addRow("Target BBS:", self.target_input)
 
         self.pw_input = QLineEdit(password)
         self.pw_input.setEchoMode(QLineEdit.EchoMode.Password)
@@ -166,8 +221,8 @@ class _PasswordEntryDialog(QDialog):
         layout.addWidget(buttons)
 
     def _validate(self):
-        if not self.call_input.text().strip():
-            QMessageBox.warning(self, "Error", "Callsign is required")
+        if not self.target_input.text().strip():
+            QMessageBox.warning(self, "Error", "Target BBS callsign is required")
             return
         if not self.pw_input.text():
             QMessageBox.warning(self, "Error", "Password is required")
@@ -175,8 +230,12 @@ class _PasswordEntryDialog(QDialog):
         self.accept()
 
     @property
-    def callsign(self) -> str:
-        return self.call_input.text().upper().strip()
+    def operator(self) -> str:
+        return self.operator_input.text().upper().strip()
+
+    @property
+    def target(self) -> str:
+        return self.target_input.text().upper().strip()
 
     @property
     def password(self) -> str:

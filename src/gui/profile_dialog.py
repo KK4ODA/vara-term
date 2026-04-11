@@ -7,7 +7,7 @@ from typing import Dict, Any
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLineEdit, QComboBox, QCheckBox, QPushButton,
+    QLineEdit, QComboBox, QCheckBox, QPushButton, QSpinBox,
     QListWidget, QListWidgetItem, QDialogButtonBox,
     QGroupBox, QMessageBox, QLabel,
 )
@@ -61,6 +61,20 @@ class ProfileDialog(QDialog):
 
         self.name_input = QLineEdit()
         form.addRow("Profile Name:", self.name_input)
+
+        self.my_call_input = QLineEdit()
+        self.my_call_input.setPlaceholderText("(use global setting)")
+        self.my_call_input.setToolTip(
+            "Operator callsign for this profile.\n"
+            "Leave blank to use the global callsign from Settings."
+        )
+        form.addRow("My Callsign:", self.my_call_input)
+
+        self.my_ssid_spin = QSpinBox()
+        self.my_ssid_spin.setRange(0, 15)
+        self.my_ssid_spin.setToolTip("SSID (0-15) for this operator.")
+        form.addRow("My SSID:", self.my_ssid_spin)
+
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText("e.g. KK4ODA-5")
         form.addRow("Target Callsign:", self.target_input)
@@ -104,6 +118,8 @@ class ProfileDialog(QDialog):
         if 0 <= row < len(profiles):
             p = profiles[row]
             self.name_input.setText(p.get("name", ""))
+            self.my_call_input.setText(p.get("my_callsign", ""))
+            self.my_ssid_spin.setValue(p.get("my_ssid", 0))
             self.target_input.setText(p.get("target_callsign", ""))
             self.mode_combo.setCurrentText(p.get("mode", "VARA FM"))
             self.bw_combo.setCurrentText(str(p.get("bandwidth", 500)))
@@ -113,6 +129,8 @@ class ProfileDialog(QDialog):
     def _add_profile(self):
         profile = {
             "name": "New Profile",
+            "my_callsign": "",
+            "my_ssid": 0,
             "target_callsign": "",
             "mode": "VARA FM",
             "bandwidth": 500,
@@ -152,6 +170,8 @@ class ProfileDialog(QDialog):
     def _current_profile_data(self) -> Dict[str, Any]:
         return {
             "name": self.name_input.text().strip(),
+            "my_callsign": self.my_call_input.text().upper().strip(),
+            "my_ssid": self.my_ssid_spin.value(),
             "target_callsign": self.target_input.text().upper().strip(),
             "mode": self.mode_combo.currentText(),
             "bandwidth": int(self.bw_combo.currentText()),
