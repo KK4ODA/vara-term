@@ -31,3 +31,4 @@ desktop.ini
 
 # VTerm runtime
 *.log
+start_term.bat

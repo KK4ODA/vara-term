@@ -165,21 +165,32 @@ class Updater(QObject):
     def apply_update(self) -> UpdateApplyResult:
         """Pull the latest commits.  Returns result — never raises."""
         result = UpdateApplyResult()
-        branch = self._config.get("update_branch", "master")
+        branch = self._config.get("update_branch", "main")
 
         try:
+            # Stash any local changes so they don't block the pull
+            stashed = False
             if self._is_dirty():
-                result.error = (
-                    "Working tree has uncommitted changes.  "
-                    "Please commit or stash them before updating."
-                )
-                return result
+                try:
+                    self._run_git("stash", "push", "-m", "auto-update stash")
+                    stashed = True
+                    log.info("Stashed local changes before update")
+                except GitError:
+                    pass  # stash failed, try pull anyway
 
             result.old_hash = self._run_git("rev-parse", "--short", "HEAD")
             self._run_git("pull", "--ff-only", "origin", branch)
             result.new_hash = self._run_git("rev-parse", "--short", "HEAD")
             result.success = True
             log.info("Updated %s → %s", result.old_hash, result.new_hash)
+
+            # Restore stashed changes
+            if stashed:
+                try:
+                    self._run_git("stash", "pop")
+                    log.info("Restored stashed local changes")
+                except GitError:
+                    log.warning("Could not restore stashed changes (may have conflicts)")
 
         except GitError as e:
             result.error = str(e)
