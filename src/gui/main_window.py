@@ -633,10 +633,12 @@ class MainWindow(QMainWindow):
             self.config.get("show_auth_protocol", False),
         )
 
-        # Send auth response if needed
+        # Send auth response if needed — delay briefly to let VARA FM
+        # finish receiving before we transmit (half-duplex turnaround)
         if action.send_response:
-            self.modem.send_data(action.send_response)
-            log.info("Sent HMAC auth response")
+            from PyQt6.QtCore import QTimer
+            response = action.send_response
+            QTimer.singleShot(1500, lambda: self._send_auth_response(response))
 
         # Handle WLREG challenge — prompt locally for Winlink password
         if action.wlreg_nonce:
@@ -1180,6 +1182,14 @@ class MainWindow(QMainWindow):
             "<tr><td><b>B</b></td><td>Disconnect</td></tr>"
             "</table>"
         )
+
+    def _send_auth_response(self, response: str):
+        """Send auth response after a brief delay for VARA FM turnaround."""
+        if self.modem.state == ConnectionState.CONNECTED:
+            self.modem.send_data(response)
+            log.info("Sent HMAC auth response (after turnaround delay)")
+        else:
+            log.warning("Auth response not sent — no longer connected")
 
     # ── Transport switching ─────────────────────────────────────────
 
