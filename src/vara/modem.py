@@ -150,10 +150,6 @@ class VARAModem(QObject):
                 self._send_cmd(f"BW{bandwidth}")
                 time.sleep(1.0)
 
-            # 4. Disable listening (client-only)
-            self._send_cmd("LISTEN OFF")
-            time.sleep(1.0)
-
             self._set_state(ConnectionState.MODEM_CONNECTED)
             log.info("VARA modem initialized successfully")
         except Exception as e:
