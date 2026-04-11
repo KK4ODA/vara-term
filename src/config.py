@@ -91,6 +91,8 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     # Soundmodem (AGWPE) — alternative transport
     "soundmodem_host": "127.0.0.1",
     "soundmodem_port": 8000,
+    "soundmodem_auto_launch": False,
+    "soundmodem_exe_path": "",
 
     # PTT (HF only — FM handles PTT internally)
     "hf_ptt_method": "OmniRig",  # "None (VOX)" or "OmniRig"
@@ -190,6 +192,12 @@ class Config:
             if "my_callsign" not in profile:
                 profile["my_callsign"] = ""
                 profile["my_ssid"] = 0
+                changed = True
+            if "tactical_callsign" not in profile:
+                profile["tactical_callsign"] = ""
+                changed = True
+            if "fm_bandwidth" not in profile:
+                profile["fm_bandwidth"] = "WIDE"
                 changed = True
 
         if changed:

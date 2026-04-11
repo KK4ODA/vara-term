@@ -84,24 +84,36 @@ class VARAModem(QObject):
                              daemon=True, name="ModemConnect")
         t.start()
 
-    def _do_connect(self, host: str, cmd_port: int, data_port: int):
-        try:
-            log.info(f"Connecting to VARA modem at {host}:{cmd_port}/{data_port}")
-            self._cmd_sock = socket.create_connection((host, cmd_port),
-                                                       timeout=CONNECT_TIMEOUT)
-            self._data_sock = socket.create_connection((host, data_port),
-                                                        timeout=CONNECT_TIMEOUT)
-            self._cmd_sock.settimeout(None)
-            self._data_sock.settimeout(None)
-            log.info("TCP connection to VARA modem established")
-            self._set_state(ConnectionState.MODEM_CONNECTED)
-            self.modem_connected.emit()
-            self._start_reader_threads()
-        except OSError as e:
-            msg = f"Cannot connect to VARA modem at {host}:{cmd_port} — {e}"
-            log.error(msg)
-            self.error_signal.emit(msg)
-            self._set_state(ConnectionState.DISCONNECTED)
+    def _do_connect(self, host: str, cmd_port: int, data_port: int,
+                    max_retries: int = 5, retry_delay: float = 2.0):
+        log.info(f"Connecting to VARA modem at {host}:{cmd_port}/{data_port}")
+        for attempt in range(1, max_retries + 1):
+            if self._stop.is_set():
+                return
+            try:
+                self._cmd_sock = socket.create_connection(
+                    (host, cmd_port), timeout=CONNECT_TIMEOUT)
+                self._data_sock = socket.create_connection(
+                    (host, data_port), timeout=CONNECT_TIMEOUT)
+                self._cmd_sock.settimeout(None)
+                self._data_sock.settimeout(None)
+                log.info("TCP connection to VARA modem established")
+                self._set_state(ConnectionState.MODEM_CONNECTED)
+                self.modem_connected.emit()
+                self._start_reader_threads()
+                return
+            except OSError as e:
+                if attempt < max_retries:
+                    log.warning(
+                        f"Modem connect attempt {attempt}/{max_retries} "
+                        f"failed: {e} — retry in {retry_delay:.0f}s"
+                    )
+                    self._stop.wait(timeout=retry_delay)
+                else:
+                    msg = f"Cannot connect to VARA modem at {host}:{cmd_port} — {e}"
+                    log.error(msg)
+                    self.error_signal.emit(msg)
+                    self._set_state(ConnectionState.DISCONNECTED)
 
     def _start_reader_threads(self):
         threading.Thread(target=self._cmd_reader, daemon=True,

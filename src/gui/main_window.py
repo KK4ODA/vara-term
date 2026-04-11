@@ -208,6 +208,11 @@ class MainWindow(QMainWindow):
         self.disconnect_btn.clicked.connect(self._on_disconnect)
         row1.addWidget(self.disconnect_btn)
 
+        clear_btn = QPushButton("  Clear  ")
+        clear_btn.setToolTip("Clear the terminal output window")
+        clear_btn.clicked.connect(self._clear_terminal)
+        row1.addWidget(clear_btn)
+
         bar_layout.addLayout(row1)
 
         # ── Row 2: Mode, status, profile ──────────────────────────
@@ -217,11 +222,9 @@ class MainWindow(QMainWindow):
         self.mode_combo = QComboBox()
         self.mode_combo.setObjectName("modeCombo")
         self.mode_combo.setToolTip("Switch between VARA FM, VARA HF, and\nSoundmodem (AGWPE) transport modes.")
-        self.mode_combo.addItems(["VARA FM", "VARA HF"])
-        if self.config.is_hf:
-            self.mode_combo.setCurrentIndex(1)
-        else:
-            self.mode_combo.setCurrentIndex(0)
+        self.mode_combo.addItems(["VARA FM", "VARA HF", "Soundmodem"])
+        _mode_map = {"VARA FM": 0, "VARA HF": 1, "AGWPE": 2}
+        self.mode_combo.setCurrentIndex(_mode_map.get(self.config.get("vara_mode", "VARA FM"), 0))
         self.mode_combo.currentIndexChanged.connect(self._on_mode_switched)
         row2.addWidget(self.mode_combo)
 
@@ -460,14 +463,28 @@ class MainWindow(QMainWindow):
         bw = self.config.get("hf_bandwidth", 500)
         self.modem.initialize_modem(callsign, is_hf, bw)
 
-        # After a delay, send the RF CONNECT command
-        # (allow time for cleanup DISCONNECT + MYCALL + COMPRESSION + BW + LISTEN)
-        QTimer.singleShot(4000, self._send_rf_connect)
+        # RF CONNECT is sent when init completes (state → MODEM_CONNECTED).
+        # A one-shot connection avoids the old fixed-timer race where
+        # CONNECT fired before BW was sent on HF.
+        self.modem.state_changed.connect(
+            self._on_init_complete, Qt.ConnectionType.QueuedConnection)
+
+    @pyqtSlot(object)
+    def _on_init_complete(self, new_state):
+        """Fired on every modem state change; send RF CONNECT once init is done."""
+        if new_state != ConnectionState.MODEM_CONNECTED:
+            return
+        # Disconnect so this doesn't fire again on later state transitions
+        try:
+            self.modem.state_changed.disconnect(self._on_init_complete)
+        except TypeError:
+            pass
+        # Small delay for modem to settle, then connect
+        QTimer.singleShot(500, self._send_rf_connect)
 
     def _send_rf_connect(self):
         """Send the CONNECT command to initiate the RF link."""
-        if self.modem.state not in (ConnectionState.MODEM_CONNECTED,
-                                     ConnectionState.INITIALIZING):
+        if self.modem.state != ConnectionState.MODEM_CONNECTED:
             return
         target = getattr(self, '_target', '')
         via1 = getattr(self, '_via1', '')
@@ -566,6 +583,10 @@ class MainWindow(QMainWindow):
         elif self.modem.state != ConnectionState.DISCONNECTED:
             self.modem.disconnect_from_modem()
 
+    def _clear_terminal(self):
+        """Clear the terminal output window."""
+        self.terminal.display.clear_terminal()
+
     def _send_text(self, text: str):
         """Send a line of text over RF, echo locally, and log."""
         if self.modem.state != ConnectionState.CONNECTED:
@@ -620,6 +641,11 @@ class MainWindow(QMainWindow):
             self._log_line(line)
             return
 
+        # Tactical address response (suppress protocol lines from display)
+        if self._handle_tactical_response(line):
+            self._log_line(line)
+            return
+
         # Chat mode detection
         self._check_chat_enter(line)
         self._check_chat_exit(line)
@@ -654,6 +680,7 @@ class MainWindow(QMainWindow):
             if action.is_success:
                 self.terminal.display.append_success(action.display_text)
                 self.passwords.update_last_used(target, self._effective_callsign())
+                self._send_tactical_if_configured()
             elif action.is_error:
                 self.terminal.display.append_error(action.display_text)
             elif action.is_warning:
@@ -881,15 +908,37 @@ class MainWindow(QMainWindow):
     def _refresh_profiles(self):
         self.profile_combo.clear()
         self.profile_combo.addItem("(none)")
-        for p in self.config.get_profiles():
-            name = p.get("name", "Untitled")
+        for i, p in enumerate(self.config.get_profiles(), 1):
+            parts = []
+            # Operator → Target
             my_call = p.get("my_callsign", "")
             if my_call:
                 ssid = p.get("my_ssid", 0)
-                label = f"{my_call}-{ssid}" if ssid else my_call
-                label = f"{label} — {name}"
+                op = f"{my_call}-{ssid}" if ssid else my_call
             else:
-                label = name
+                op = ""
+            target = p.get("target_callsign", "")
+            if op and target:
+                parts.append(f"{op} → {target}")
+            elif target:
+                parts.append(target)
+            elif op:
+                parts.append(op)
+            # Transport + bandwidth
+            mode = p.get("mode", "VARA FM")
+            if mode == "VARA HF":
+                bw = p.get("bandwidth", 500)
+                parts.append(f"VARA HF/{bw}")
+            elif mode == "AGWPE":
+                parts.append("Soundmodem")
+            else:
+                fm_bw = p.get("fm_bandwidth", "WIDE")
+                parts.append(f"VARA FM/{fm_bw}")
+            # Tactical
+            tactical = p.get("tactical_callsign", "")
+            if tactical:
+                parts.append(f"[{tactical}]")
+            label = f"{i}: {' | '.join(parts)}"
             self.profile_combo.addItem(label)
 
     def _on_profile_selected(self, index: int):
@@ -909,9 +958,11 @@ class MainWindow(QMainWindow):
             mode = p.get("mode", "VARA FM")
             if mode != self.config.get("vara_mode"):
                 self.config.set("vara_mode", mode)
-                bw = p.get("bandwidth", 500)
-                self.config.set("hf_bandwidth", bw)
-                self._update_ui_state()
+            bw = p.get("bandwidth", 500)
+            self.config.set("hf_bandwidth", bw)
+            fm_bw = p.get("fm_bandwidth", "WIDE")
+            self.config.set("fm_bandwidth", fm_bw)
+            self._update_ui_state()
 
     # ── Session logging ────────────────────────────────────────────
 
@@ -1027,8 +1078,9 @@ class MainWindow(QMainWindow):
         return configured_path  # return whatever was configured (for error msg)
 
     def _on_mode_switched(self, index: int):
-        """User changed VARA mode via the toolbar combo."""
-        new_mode = "VARA HF" if index == 1 else "VARA FM"
+        """User changed transport mode via the toolbar combo."""
+        _idx_to_mode = {0: "VARA FM", 1: "VARA HF", 2: "AGWPE"}
+        new_mode = _idx_to_mode.get(index, "VARA FM")
         old_mode = self.config.get("vara_mode", "VARA FM")
         if new_mode == old_mode:
             return
@@ -1045,26 +1097,34 @@ class MainWindow(QMainWindow):
 
         # 3. Terminate old modem process and launch the new one
         self._terminate_modem_processes()
-        self.terminal.display.append_system(f"Switched to {new_mode}")
+        label = "Soundmodem (AGWPE)" if new_mode == "AGWPE" else new_mode
+        self.terminal.display.append_system(f"Switched to {label}")
         QTimer.singleShot(300, self._launch_modem_processes)
 
         self._update_ui_state()
 
     def _launch_modem_processes(self):
-        """Launch the VARA modem executable matching the selected mode."""
-        is_hf = self.config.is_hf
-        mode_label = "VARA HF" if is_hf else "VARA FM"
+        """Launch the modem executable matching the selected mode."""
+        mode = self.config.get("vara_mode", "VARA FM")
 
-        if is_hf:
+        if mode == "AGWPE":
+            should_launch = self.config.get("soundmodem_auto_launch", False)
+            configured_path = self.config.get("soundmodem_exe_path", "")
+            search_paths = []  # no common default paths for soundmodem
+            path_key = "soundmodem_exe_path"
+            mode_label = "Soundmodem"
+        elif mode == "VARA HF":
             should_launch = self.config.get("vara_hf_auto_launch", True)
             configured_path = self.config.get("vara_hf_exe_path", "")
             search_paths = self._VARA_HF_PATHS
             path_key = "vara_hf_exe_path"
+            mode_label = "VARA HF"
         else:
             should_launch = self.config.get("vara_fm_auto_launch", True)
             configured_path = self.config.get("vara_fm_exe_path", "")
             search_paths = self._VARA_FM_PATHS
             path_key = "vara_fm_exe_path"
+            mode_label = "VARA FM"
 
         if not should_launch:
             return
@@ -1101,17 +1161,31 @@ class MainWindow(QMainWindow):
             return None
 
     def _terminate_modem_processes(self):
-        """Terminate all VARA modem processes we launched."""
+        """Terminate all VARA modem processes we launched.
+
+        Uses ``taskkill /F /T`` on Windows to kill the entire process
+        tree, since VARA FM/HF may spawn child processes that survive
+        a simple ``proc.terminate()``.
+        """
         for proc in self._modem_procs:
             if proc.poll() is None:  # still running
                 try:
-                    log.info(f"Terminating modem process PID {proc.pid}")
-                    proc.terminate()
+                    pid = proc.pid
+                    log.info(f"Terminating modem process PID {pid}")
+                    if os.name == "nt":
+                        # Kill entire process tree on Windows
+                        subprocess.call(
+                            ["taskkill", "/F", "/T", "/PID", str(pid)],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                    else:
+                        proc.terminate()
                     try:
                         proc.wait(timeout=5)
                     except subprocess.TimeoutExpired:
                         log.warning(
-                            f"Modem PID {proc.pid} did not exit, killing")
+                            f"Modem PID {pid} did not exit, killing")
                         proc.kill()
                 except Exception as e:
                     log.error(f"Error terminating modem PID {proc.pid}: {e}")
@@ -1186,9 +1260,11 @@ class MainWindow(QMainWindow):
             "<table>"
             "<tr><td><b>L</b></td><td>List messages</td></tr>"
             "<tr><td><b>R #</b></td><td>Read message by number</td></tr>"
-            "<tr><td><b>S call</b></td><td>Send message to callsign</td></tr>"
-            "<tr><td><b>S user@addr</b></td><td>Send via Winlink</td></tr>"
+            "<tr><td><b>S call</b></td><td>Send local message (RF pickup)</td></tr>"
+            "<tr><td><b>SW call</b></td><td>Send via Winlink CMS</td></tr>"
+            "<tr><td><b>S user@addr</b></td><td>Send email via Winlink</td></tr>"
             "<tr><td><b>K #</b></td><td>Delete message</td></tr>"
+            "<tr><td><b>KA</b></td><td>Delete ALL messages (sysop)</td></tr>"
             "<tr><td><b>U</b></td><td>Your messages</td></tr>"
             "<tr><td><b>N</b></td><td>New messages</td></tr>"
             "</table>"
@@ -1206,8 +1282,10 @@ class MainWindow(QMainWindow):
             "</table>"
             "<h3>Winlink</h3>"
             "<table>"
+            "<tr><td><b>WL</b></td><td>Check Winlink CMS for mail</td></tr>"
             "<tr><td><b>WLREG</b></td><td>Register for Winlink email</td></tr>"
             "<tr><td><b>WLOFF</b></td><td>Unregister from Winlink</td></tr>"
+            "<tr><td><b>TACTICAL addr</b></td><td>Set tactical address for WL/send</td></tr>"
             "</table>"
             "<h3>Other</h3>"
             "<table>"
@@ -1258,6 +1336,41 @@ class MainWindow(QMainWindow):
             transport = line[11:].strip()
             self._detected_transport = transport
             self.terminal.display.append_system(f"BBS transport: {transport}")
+            return True
+        return False
+
+    # ── Tactical address ──────────────────────────────────────────────
+
+    def _send_tactical_if_configured(self):
+        """Send ;TACTICAL <call> after auth success if profile has one."""
+        tactical = ""
+        if self._active_profile:
+            tactical = self._active_profile.get("tactical_callsign", "").upper().strip()
+        if not tactical:
+            tactical = self.config.get("tactical_callsign", "").upper().strip()
+        if tactical:
+            cmd = f";TACTICAL {tactical}\r\n"
+            QTimer.singleShot(2000, lambda: self._send_tactical_cmd(cmd))
+
+    def _send_tactical_cmd(self, cmd: str):
+        if self.modem.state == ConnectionState.CONNECTED:
+            self.modem.send_data(cmd)
+            log.info(f"Sent tactical address command: {cmd.strip()}")
+
+    def _handle_tactical_response(self, line: str) -> bool:
+        """Check if a line is a ;TACTICAL response.  Returns True if handled."""
+        if line.startswith(";TACTICAL OK"):
+            detail = line[12:].strip()
+            if detail and detail.lower() != "cleared":
+                self.terminal.display.append_success(
+                    f"[TACTICAL] Address activated: {detail}")
+            else:
+                self.terminal.display.append_system("[TACTICAL] Address cleared")
+            return True
+        if line.startswith(";TACTICAL FAIL"):
+            reason = line[14:].strip()
+            self.terminal.display.append_warning(
+                f"[TACTICAL] Rejected: {reason}")
             return True
         return False
 

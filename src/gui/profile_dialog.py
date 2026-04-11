@@ -75,12 +75,26 @@ class ProfileDialog(QDialog):
         self.my_ssid_spin.setToolTip("SSID (0-15) for this operator.")
         form.addRow("My SSID:", self.my_ssid_spin)
 
+        self.tactical_input = QLineEdit()
+        self.tactical_input.setPlaceholderText("(optional, e.g. BRECKEN)")
+        self.tactical_input.setToolTip(
+            "Tactical address to activate on the BBS after connecting.\n"
+            "Must match a tactical address configured on the BBS.\n"
+            "WL will poll Winlink for this address; S will send from it.\n"
+            "Leave blank to skip."
+        )
+        form.addRow("Tactical Address:", self.tactical_input)
+
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText("e.g. KK4ODA-5")
         form.addRow("Target Callsign:", self.target_input)
         self.mode_combo = QComboBox()
         self.mode_combo.addItems(["VARA FM", "VARA HF"])
         form.addRow("Mode:", self.mode_combo)
+        self.fm_bw_combo = QComboBox()
+        self.fm_bw_combo.addItems(["WIDE", "NARROW"])
+        self.fm_bw_combo.setToolTip("VARA FM bandwidth.\nWIDE (default) or NARROW.")
+        form.addRow("FM Bandwidth:", self.fm_bw_combo)
         self.bw_combo = QComboBox()
         self.bw_combo.addItems(["500", "2300", "2750"])
         self.bw_combo.setToolTip("VARA HF bandwidth for this profile.\n500/2300/2750 Hz.")
@@ -120,8 +134,10 @@ class ProfileDialog(QDialog):
             self.name_input.setText(p.get("name", ""))
             self.my_call_input.setText(p.get("my_callsign", ""))
             self.my_ssid_spin.setValue(p.get("my_ssid", 0))
+            self.tactical_input.setText(p.get("tactical_callsign", ""))
             self.target_input.setText(p.get("target_callsign", ""))
             self.mode_combo.setCurrentText(p.get("mode", "VARA FM"))
+            self.fm_bw_combo.setCurrentText(p.get("fm_bandwidth", "WIDE"))
             self.bw_combo.setCurrentText(str(p.get("bandwidth", 500)))
             self.via1_input.setText(p.get("via1", ""))
             self.via2_input.setText(p.get("via2", ""))
@@ -131,8 +147,10 @@ class ProfileDialog(QDialog):
             "name": "New Profile",
             "my_callsign": "",
             "my_ssid": 0,
+            "tactical_callsign": "",
             "target_callsign": "",
             "mode": "VARA FM",
+            "fm_bandwidth": "WIDE",
             "bandwidth": 500,
             "via1": "",
             "via2": "",
@@ -172,8 +190,10 @@ class ProfileDialog(QDialog):
             "name": self.name_input.text().strip(),
             "my_callsign": self.my_call_input.text().upper().strip(),
             "my_ssid": self.my_ssid_spin.value(),
+            "tactical_callsign": self.tactical_input.text().upper().strip(),
             "target_callsign": self.target_input.text().upper().strip(),
             "mode": self.mode_combo.currentText(),
+            "fm_bandwidth": self.fm_bw_combo.currentText(),
             "bandwidth": int(self.bw_combo.currentText()),
             "via1": self.via1_input.text().upper().strip(),
             "via2": self.via2_input.text().upper().strip(),

@@ -199,12 +199,17 @@ class SettingsDialog(QDialog):
         self.fm_host.setToolTip("IP address of the VARA FM modem.\nUsually 127.0.0.1 for local.")
         fm_form.addRow("Host:", self.fm_host)
         self.fm_cmd_port = QSpinBox()
-        self.fm_cmd_port.setRange(1, 65535)
+        self.fm_cmd_port.setRange(1, 65534)
         self.fm_cmd_port.setToolTip("VARA FM TCP command port (default: 8300).\nMust match VARA FM modem settings.")
         fm_form.addRow("Command Port:", self.fm_cmd_port)
         self.fm_data_port = QSpinBox()
-        self.fm_data_port.setRange(1, 65535)
-        self.fm_data_port.setToolTip("VARA FM TCP data port (default: 8301).\nMust match VARA FM modem settings.")
+        self.fm_data_port.setRange(2, 65535)
+        self.fm_data_port.setReadOnly(True)
+        self.fm_data_port.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.fm_data_port.setToolTip("Data port is always Command Port + 1.")
+        self.fm_data_port.setStyleSheet("background: #3a3a3a; color: #888;")
+        self.fm_cmd_port.valueChanged.connect(
+            lambda v: self.fm_data_port.setValue(v + 1))
         fm_form.addRow("Data Port:", self.fm_data_port)
         self.fm_auto_launch = QCheckBox("Start VARA FM with VARA Term (and close on exit)")
         self.fm_auto_launch.setToolTip("Automatically start VARA FM modem when\nVARA Term launches, and close it on exit.")
@@ -227,12 +232,17 @@ class SettingsDialog(QDialog):
         self.hf_host.setToolTip("IP address of the VARA HF modem.\nUsually 127.0.0.1 for local.")
         hf_form.addRow("Host:", self.hf_host)
         self.hf_cmd_port = QSpinBox()
-        self.hf_cmd_port.setRange(1, 65535)
+        self.hf_cmd_port.setRange(1, 65534)
         self.hf_cmd_port.setToolTip("VARA HF TCP command port (default: 8300).\nMust match VARA HF modem settings.")
         hf_form.addRow("Command Port:", self.hf_cmd_port)
         self.hf_data_port = QSpinBox()
-        self.hf_data_port.setRange(1, 65535)
-        self.hf_data_port.setToolTip("VARA HF TCP data port (default: 8301).\nMust match VARA HF modem settings.")
+        self.hf_data_port.setRange(2, 65535)
+        self.hf_data_port.setReadOnly(True)
+        self.hf_data_port.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.hf_data_port.setToolTip("Data port is always Command Port + 1.")
+        self.hf_data_port.setStyleSheet("background: #3a3a3a; color: #888;")
+        self.hf_cmd_port.valueChanged.connect(
+            lambda v: self.hf_data_port.setValue(v + 1))
         hf_form.addRow("Data Port:", self.hf_data_port)
         self.hf_auto_launch = QCheckBox("Start VARA HF with VARA Term (and close on exit)")
         self.hf_auto_launch.setToolTip("Automatically start VARA HF modem when\nVARA Term launches, and close it on exit.")
@@ -288,6 +298,16 @@ class SettingsDialog(QDialog):
         self.agwpe_port.setRange(1, 65535)
         self.agwpe_port.setToolTip("TCP port for the AGWPE interface.\nSoundmodem default: 8000.")
         agwpe_form.addRow("AGWPE Port:", self.agwpe_port)
+        self.agwpe_auto_launch = QCheckBox("Auto-launch Soundmodem")
+        self.agwpe_auto_launch.setToolTip(
+            "Start the Soundmodem executable automatically\n"
+            "when connecting in AGWPE mode."
+        )
+        agwpe_form.addRow(self.agwpe_auto_launch)
+        self.agwpe_exe = QLineEdit()
+        self.agwpe_exe.setPlaceholderText("Path to Soundmodem.exe")
+        self.agwpe_exe.setToolTip("Full path to the Soundmodem executable.")
+        agwpe_form.addRow("Exe Path:", self.agwpe_exe)
         layout.addWidget(self.agwpe_group)
 
         layout.addStretch()
@@ -451,6 +471,8 @@ class SettingsDialog(QDialog):
 
         self.agwpe_host.setText(c.get("soundmodem_host", "127.0.0.1"))
         self.agwpe_port.setValue(c.get("soundmodem_port", 8000))
+        self.agwpe_auto_launch.setChecked(c.get("soundmodem_auto_launch", False))
+        self.agwpe_exe.setText(c.get("soundmodem_exe_path", ""))
 
         # Auth tab
         self.auto_hmac_cb.setChecked(c.get("auto_respond_hmac", True))
@@ -488,13 +510,13 @@ class SettingsDialog(QDialog):
 
         c.set("vara_fm_host", self.fm_host.text())
         c.set("vara_fm_cmd_port", self.fm_cmd_port.value())
-        c.set("vara_fm_data_port", self.fm_data_port.value())
+        c.set("vara_fm_data_port", self.fm_cmd_port.value() + 1)
         c.set("vara_fm_auto_launch", self.fm_auto_launch.isChecked())
         c.set("vara_fm_exe_path", self.fm_exe_path.text())
 
         c.set("vara_hf_host", self.hf_host.text())
         c.set("vara_hf_cmd_port", self.hf_cmd_port.value())
-        c.set("vara_hf_data_port", self.hf_data_port.value())
+        c.set("vara_hf_data_port", self.hf_cmd_port.value() + 1)
         c.set("vara_hf_auto_launch", self.hf_auto_launch.isChecked())
         c.set("vara_hf_exe_path", self.hf_exe_path.text())
 
@@ -503,6 +525,8 @@ class SettingsDialog(QDialog):
 
         c.set("soundmodem_host", self.agwpe_host.text())
         c.set("soundmodem_port", self.agwpe_port.value())
+        c.set("soundmodem_auto_launch", self.agwpe_auto_launch.isChecked())
+        c.set("soundmodem_exe_path", self.agwpe_exe.text())
 
         c.set("auto_respond_hmac", self.auto_hmac_cb.isChecked())
         c.set("allow_plaintext_fallback", self.plaintext_fallback_cb.isChecked())
